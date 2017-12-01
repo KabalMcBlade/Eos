@@ -4,7 +4,7 @@ Eos is a memory allocator based on the idea that is faster allocate a large amou
 
 > Eos is a ancient greek word means Dawn.
 
-
+ 
 It comes with 3 different type of allocators:
 1. Heap allocator
 2. Stack allocator
