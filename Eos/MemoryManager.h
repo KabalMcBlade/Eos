@@ -12,7 +12,7 @@ EOS_NAMESPACE_BEGIN
 class MemoryManager
 {
 public:
-    EOS_NO_INLINE static /* Put here a "__declspec(dllexport)" if needed inside a lib project */ MemoryManager& Instance();
+    EOS_NO_INLINE static EOS_DLL MemoryManager& Instance();
 
     EOS_INLINE HeapAllocator& GetHeapAllocator()
     {

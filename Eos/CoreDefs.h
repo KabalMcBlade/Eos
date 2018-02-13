@@ -31,6 +31,13 @@
 // DEFINES
 //////////////////////////////////////////////////////////////////////////
 
+#ifdef EOS_EXPORTS
+#define EOS_DLL __declspec(dllexport)
+#else
+#define EOS_DLL __declspec(dllimport)
+#endif 
+
+
 // comment to avoid memory trace
 // Anyway this work ONLY in debug due the _DEBUG defined in the project options
 #define EOS_MEMORYLOAD
