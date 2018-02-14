@@ -13,6 +13,10 @@ EOS_NAMESPACE_BEGIN
 #define eosStringFast                       std::basic_string<char, std::char_traits<char>, StlAllocator<char, LinearAllocPolicy<char>> >
 #define eosStringStack                      std::basic_string<char, std::char_traits<char>, StlAllocator<char, StackAllocPolicy<char>> >
 
+#define eosTString                           std::basic_string<TCHAR, std::char_traits<TCHAR>, StlAllocator<TCHAR, HeapAllocPolicy<TCHAR>> >
+#define eosTStringFast                       std::basic_string<TCHAR, std::char_traits<TCHAR>, StlAllocator<TCHAR, LinearAllocPolicy<TCHAR>> >
+#define eosTStringStack                      std::basic_string<TCHAR, std::char_traits<TCHAR>, StlAllocator<TCHAR, StackAllocPolicy<TCHAR>> >
+
 #define eosVector(T)                        std::vector<T, StlAllocator<T, HeapAllocPolicy<T> > >
 #define eosVectorFast(T)                    std::vector<T, StlAllocator<T, LinearAllocPolicy<T> > >
 #define eosVectorStack(T)                   std::vector<T, StlAllocator<T, StackAllocPolicy<T> > >
