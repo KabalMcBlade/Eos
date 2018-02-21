@@ -6,7 +6,9 @@
 
 EOS_NAMESPACE_BEGIN
 
-class SmartObject
+template struct EOS_DLL std::atomic<uint_fast32_t>;
+
+class EOS_DLL SmartObject
 {
 public:
     typedef eosU32 RefCount;
