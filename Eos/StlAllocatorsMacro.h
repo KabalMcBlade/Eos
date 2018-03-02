@@ -25,13 +25,13 @@ EOS_NAMESPACE_BEGIN
 #define eosStackFast(T)                     std::stack<T, StlAllocator<T, LinearAllocPolicy<T> > >
 #define eosStackStack(T)                    std::stack<T, StlAllocator<T, StackAllocPolicy<T> > >
 
-#define eosMap(T, U)                        std::map<T, U, StlAllocator<T, HeapAllocPolicy<T> > >
-#define eosMapFast(T, U)                    std::map<T, U, StlAllocator<T, LinearAllocPolicy<T> > >
-#define eosMapStack(T, U)                   std::map<T, U, StlAllocator<T, StackAllocPolicy<T> > >
+#define eosMap(T, U)                        std::map<T, U, std::less<T>, StlAllocator<std::pair<T, U>, HeapAllocPolicy<std::pair<T, U>> > >
+#define eosMapFast(T, U)                    std::map<T, U, std::less<T>, StlAllocator<std::pair<T, U>, LinearAllocPolicy<std::pair<T, U>> > >
+#define eosMapStack(T, U)                   std::map<T, U, std::less<T>, StlAllocator<std::pair<T, U>, StackAllocPolicy<std::pair<T, U>> > >
 
-#define eosUnorderedMap(T, U)               std::unordered_map<T, U, StlAllocator<T, HeapAllocPolicy<T> > >
-#define eosUnorderedMapFast(T, U)           std::unordered_map<T, U, StlAllocator<T, LinearAllocPolicy<T> > >
-#define eosUnorderedMapStack(T, U)          std::unordered_map<T, U, StlAllocator<T, StackAllocPolicy<T> > >
+#define eosUnorderedMap(T, U)               std::unordered_map<T, U, std::less<T>, StlAllocator<std::pair<T, U>, HeapAllocPolicy<std::pair<T, U>> > >
+#define eosUnorderedMapFast(T, U)           std::unordered_map<T, U, std::less<T>, StlAllocator<std::pair<T, U>, LinearAllocPolicy<std::pair<T, U>> > >
+#define eosUnorderedMapStack(T, U)          std::unordered_map<T, U, std::less<T>, StlAllocator<std::pair<T, U>, StackAllocPolicy<std::pair<T, U>> > >
 
 #define eosDeque(T)                         std::deque<T, StlAllocator<T, HeapAllocPolicy<T> > >
 #define eosDequeFast(T)                     std::deque<T, StlAllocator<T, LinearAllocPolicy<T> > >
