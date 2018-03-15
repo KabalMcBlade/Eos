@@ -59,7 +59,7 @@ public:
             eosAssertReturnValue(uiSize < m_uiBlockSize, "Pointer is out of memory", nullptr);
 
             // find a free block
-            bool bFoundBlock = false;
+            eosBool bFoundBlock = false;
             eosSize uiBlock = 0;
             for (eosSize i = 0; i < m_uiBlockCount; ++i)
             {
