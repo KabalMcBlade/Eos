@@ -33,8 +33,10 @@
 
 #ifdef EOS_EXPORTS
 #define EOS_DLL __declspec(dllexport)
-#else
+#elif EOS_IMPORTS 
 #define EOS_DLL __declspec(dllimport)
+#else
+#define EOS_DLL
 #endif 
 
 
