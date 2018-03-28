@@ -122,4 +122,4 @@ The source code of Eos is inside the subfolder Eos
 
 | Platform | Build Status |
 |:--------:|:------------:|
-| Windows (Visual Studio 2015) | [![Windows Build Status](https://ci.appveyor.com/api/projects/status/github/kabal2013/eos?branch=master&svg=true)](https://ci.appveyor.com/project/Kabal2013/eos) |
+| Windows (Visual Studio 2015) | [![Windows Build Status](https://ci.appveyor.com/api/projects/status/github/kabalmcblade/eos?branch=master&svg=true)](https://ci.appveyor.com/project/kabalmcblade/eos) |
