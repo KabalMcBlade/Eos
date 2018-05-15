@@ -105,6 +105,13 @@ public:
         return *this; 
     }
 
+    template <class rhsT>
+    void SetFromOther (SmartPointer<rhsT> & _rhs)
+    {
+        m_pObject = dynamic_cast<T*>(_rhs.Get());
+        RefIncrement(m_pObject);
+    }
+
     eosBool IsValid() const { return m_pObject != nullptr; }
     eosU32 GetRefCount() const { return IsValid() ? GetRefCount(m_pObject) : 0; }
 
