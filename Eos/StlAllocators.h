@@ -22,14 +22,14 @@
 EOS_NAMESPACE_BEGIN
 
 ///////////////////////////////////////////////////////////////////////////
-//	Traits that describes an object T
+//    Traits that describes an object T
 ///////////////////////////////////////////////////////////////////////////
 
 // a standard object trait
 template<typename T>
 class ObjectTraits {
 public:
-    //	convert an ObjectTraits<T> to ObjectTraits<U>
+    //    convert an ObjectTraits<T> to ObjectTraits<U>
     template<typename U>
     struct rebind {
         typedef ObjectTraits<U> other;
@@ -42,24 +42,24 @@ public:
     template <typename U>
     EOS_INLINE explicit ObjectTraits(ObjectTraits<U> const&) {}
 
-    //	address
+    //    address
     EOS_INLINE T* address(T& r) { return &r; }
     EOS_INLINE T const* address(T const& r) { return &r; }
 
     // displacement allocator only for STL purpose
     EOS_INLINE static void construct(T* p, const T& t)  { new(p) T(t); }
     EOS_INLINE static void destroy(T* p) {  p->~T(); }
-};	//	end of class ObjectTraits
+};    //    end of class ObjectTraits
 
 ///////////////////////////////////////////////////////////////////////////
-//	class HeapAllocPolicy
+//    class HeapAllocPolicy
 ///////////////////////////////////////////////////////////////////////////
 
-//	a standard allocation policy using the free store
+//    a standard allocation policy using the free store
 template<typename T>
 class HeapAllocPolicy {
 public:
-    //	typedefs
+    //    typedefs
     typedef T value_type;
     typedef value_type* pointer;
     typedef const value_type* const_pointer;
@@ -69,7 +69,7 @@ public:
     typedef std::ptrdiff_t difference_type;
 
 public:
-    //	convert an HeapAllocPolicy<T> to HeapAllocPolicy<U>
+    //    convert an HeapAllocPolicy<T> to HeapAllocPolicy<U>
     template<typename U>
     struct rebind {
         typedef HeapAllocPolicy<U> other;
@@ -82,7 +82,7 @@ public:
     template <typename U>
     EOS_INLINE explicit HeapAllocPolicy(HeapAllocPolicy<U> const&) {}
 
-    //	memory allocation
+    //    memory allocation
     EOS_INLINE pointer allocate(size_type cnt, typename std::allocator<void>::const_pointer = 0) 
     { 
         return static_cast<pointer>(eosNewRaw(cnt * sizeof(T), EOS_STL_ALIGNMENT));
@@ -92,11 +92,11 @@ public:
         eosDeleteRaw(p);
     }
 
-    //	size
+    //    size
     EOS_INLINE size_type max_size() const { return std::numeric_limits<size_type>::max() / sizeof(T); }
-};	//	end of class HeapAllocPolicy
+};    //    end of class HeapAllocPolicy
 
-//	determines if memory from another allocator can be deallocated from this one
+//    determines if memory from another allocator can be deallocated from this one
 template<typename T, typename T2>
 EOS_INLINE bool operator==(HeapAllocPolicy<T> const&, HeapAllocPolicy<T2> const&)
 {
@@ -111,15 +111,15 @@ EOS_INLINE bool operator==(HeapAllocPolicy<T> const&, OtherAllocator const&)
 
 
 ///////////////////////////////////////////////////////////////////////////
-//	class StackAllocPolicy
+//    class StackAllocPolicy
 ///////////////////////////////////////////////////////////////////////////
 
-//	a fixed size array allocation policy
-//	should be used with vector only
+//    a fixed size array allocation policy
+//    should be used with vector only
 template<typename T>
 class StackAllocPolicy {
 public:
-    //	typedefs
+    //    typedefs
     typedef T value_type;
     typedef value_type* pointer;
     typedef const value_type* const_pointer;
@@ -129,7 +129,7 @@ public:
     typedef std::ptrdiff_t difference_type;
 
 public:
-    //	convert an StackAllocPolicy<T> to StackAllocPolicy<U>
+    //    convert an StackAllocPolicy<T> to StackAllocPolicy<U>
     template<typename U>
     struct rebind {
         typedef StackAllocPolicy<U> other;
@@ -142,7 +142,7 @@ public:
     template <typename U>
     EOS_INLINE explicit StackAllocPolicy(StackAllocPolicy<U> const&) {}
 
-    //	memory allocation
+    //    memory allocation
     EOS_INLINE pointer allocate(size_type cnt, typename std::allocator<void>::const_pointer = 0) 
     {
         return static_cast<pointer>(eosNewRawStack(cnt * sizeof(T), EOS_STL_ALIGNMENT));
@@ -152,11 +152,11 @@ public:
         eosDeleteRawStack(p);
     }
 
-    //	size
+    //    size
     EOS_INLINE size_type max_size() const { return std::numeric_limits<size_type>::max() / sizeof(T); }
-};	//	end of class StackAllocPolicy
+};    //    end of class StackAllocPolicy
 
-//	determines if memory from another allocator can be deallocated from this one
+//    determines if memory from another allocator can be deallocated from this one
 template<typename T, typename T2>
 EOS_INLINE bool operator==(StackAllocPolicy<T> const&, StackAllocPolicy<T2> const&) 
 {
@@ -171,13 +171,13 @@ EOS_INLINE bool operator==(StackAllocPolicy<T> const&, OtherAllocator const&)
 
 
 ///////////////////////////////////////////////////////////////////////////
-//	class LinearAllocPolicy
+//    class LinearAllocPolicy
 ///////////////////////////////////////////////////////////////////////////
 
 template<typename T>
 class LinearAllocPolicy {
 public:
-    //	typedefs
+    //    typedefs
     typedef T value_type;
     typedef value_type* pointer;
     typedef const value_type* const_pointer;
@@ -187,7 +187,7 @@ public:
     typedef std::ptrdiff_t difference_type;
 
 public:
-    //	convert an LinearAllocPolicy<T> to LinearAllocPolicy<U>
+    //    convert an LinearAllocPolicy<T> to LinearAllocPolicy<U>
     template<typename U>
     struct rebind {
         typedef LinearAllocPolicy<U> other;
@@ -200,7 +200,7 @@ public:
     template <typename U>
     EOS_INLINE explicit LinearAllocPolicy(LinearAllocPolicy<U> const&) {}
 
-    //	memory allocation
+    //    memory allocation
     EOS_INLINE pointer allocate(size_type cnt, typename std::allocator<void>::const_pointer = 0)
     {
         return static_cast<pointer>(eosNewRawLinear(cnt * sizeof(T), EOS_STL_ALIGNMENT));
@@ -210,11 +210,11 @@ public:
         eosDeleteRawLinear(p);
     }
 
-    //	size
+    //    size
     EOS_INLINE size_type max_size() const { return std::numeric_limits<size_type>::max() / sizeof(T); }
-};	//	end of class LinearAllocPolicy
+};    //    end of class LinearAllocPolicy
 
-    //	determines if memory from another allocator can be deallocated from this one
+    //    determines if memory from another allocator can be deallocated from this one
 template<typename T, typename T2>
 EOS_INLINE bool operator==(LinearAllocPolicy<T> const&, LinearAllocPolicy<T2> const&)
 {
@@ -228,10 +228,10 @@ EOS_INLINE bool operator==(LinearAllocPolicy<T> const&, OtherAllocator const&)
 
 
 ///////////////////////////////////////////////////////////////////////////
-//	class StlAllocator
+//    class StlAllocator
 ///////////////////////////////////////////////////////////////////////////
 
-//	Policy driven allocator object
+//    Policy driven allocator object
 template<typename T, typename Policy = HeapAllocPolicy<T>, typename Traits = ObjectTraits<T> >
 class StlAllocator : public Policy, public Traits {
 private:
@@ -264,7 +264,7 @@ public:
     template <typename U, typename P, typename T2>
     EOS_INLINE StlAllocator(StlAllocator<U, P, T2> const& rhs) : Traits(rhs), Policy(rhs) {}
 
-    //	memory allocation
+    //    memory allocation
     EOS_INLINE pointer allocate(size_type cnt, typename std::allocator<void>::const_pointer hint = 0)
     {
         return AllocationPolicy::allocate(cnt, hint);
@@ -273,10 +273,10 @@ public:
     {
         AllocationPolicy::deallocate(p, cnt);
     }
-};	//	end of class StlAllocator
+};    //    end of class StlAllocator
 
 
-//	determines if memory from another allocator can be deallocated from this one
+//    determines if memory from another allocator can be deallocated from this one
 template<typename T, typename P, typename Tr>
 EOS_INLINE bool operator==(StlAllocator<T, P, Tr> const& lhs, StlAllocator<T, P, Tr> const& rhs) 
 {

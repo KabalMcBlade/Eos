@@ -75,14 +75,14 @@
 #define EOS_BIT_CHECK(value, bitpos)        ((value) & (1<<(bitpos))) 
 #define EOS_BIT_CLEAR(value, bitpos)        ((value) &= ~((1) << (bitpos)))
 #define EOS_BIT_TOGGLE(value, bitpos)       ((value) ^= (1<<(bitpos)))
-#define EOS_BIT_GET(value, mask)	        ((value) & (mask)) 
+#define EOS_BIT_GET(value, mask)            ((value) & (mask)) 
 
 
 //////////////////////////////////////////////////////////////////////////
 // TYPEDEFS
 //////////////////////////////////////////////////////////////////////////
 
-typedef	bool			eosBool;
+typedef    bool            eosBool;
 typedef uint_fast8_t    eosU8;
 typedef uint_fast32_t   eosU32;
 typedef uint_fast64_t   eosU64;
@@ -98,12 +98,12 @@ typedef std::size_t     eosSize;
 
 #ifdef _DEBUG
 #define eosAssert( condition, message ) \
-	if( !(condition) ) { \
-		std::cerr << "Assert: " << (#condition) << std::endl; \
-		std::cerr << "Message: " << message << std::endl; \
-		std::cerr << "File: " << __FILE__ << std::endl; \
+    if( !(condition) ) { \
+        std::cerr << "Assert: " << (#condition) << std::endl; \
+        std::cerr << "Message: " << message << std::endl; \
+        std::cerr << "File: " << __FILE__ << std::endl; \
         std::cerr << "Line: " << __LINE__ << std::endl << std::endl; \
-	}
+    }
 #define eosAssertDialog( condition ) assert(condition)
 #else
 #define eosAssert( condition, message )
@@ -112,12 +112,12 @@ typedef std::size_t     eosSize;
 
 #define eosAssertReturnVoid( condition, message ) \
     eosAssert( condition, message )\
-	if( !(condition) ) { \
+    if( !(condition) ) { \
         return;\
-	}
+    }
 
 #define eosAssertReturnValue( condition, message, return_value ) \
     eosAssert( condition, message )\
-	if( !(condition) ) { \
+    if( !(condition) ) { \
         return return_value;\
-	}
+    }
