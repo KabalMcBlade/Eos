@@ -42,7 +42,8 @@ private:
 
 //////////////////////////////////////////////////////////////////////////
 
-template <class T>
+
+template <typename T>
 class SmartPointer
 {
 public:
@@ -53,8 +54,8 @@ public:
         RefIncrement(m_pObject);
     }
 
-    template <class rhsT>
-    SmartPointer(SmartPointer<rhsT> & _rhs) : m_pObject(_rhs.Get())
+    template <typename U>
+    SmartPointer(SmartPointer<U> & _x) : m_pObject(dynamic_cast<T*>(_x.operator->()))
     {
         RefIncrement(m_pObject);
     }
@@ -105,21 +106,11 @@ public:
         return *this; 
     }
 
-    template <class rhsT>
-    void SetFromOther (SmartPointer<rhsT> & _rhs)
-    {
-        m_pObject = dynamic_cast<T*>(_rhs.Get());
-        RefIncrement(m_pObject);
-    }
-
     eosBool IsValid() const { return m_pObject != nullptr; }
     eosU32 GetRefCount() const { return IsValid() ? GetRefCount(m_pObject) : 0; }
 
     T& operator*() const { return *m_pObject; }
     T* operator->() const { return  m_pObject; }
-
-    T* Get() const { return m_pObject; }
-
 
 protected:
     EOS_INLINE SmartObject::RefCount RefIncrement(SmartObject* _pObject)
@@ -145,16 +136,16 @@ protected:
     T * m_pObject;
 };
 
-template <class T1, class T2> EOS_INLINE bool operator==(SmartPointer<T1> const & _sp1, SmartPointer<T2> const & _sp2) { return _sp1.Get() == _sp2.Get(); }
-template <class T1, class T2> EOS_INLINE bool operator==(SmartPointer<T1> const & _sp1, T2* _p2) { return _sp1.Get() == _p2; }
-template <class T1, class T2> EOS_INLINE bool operator==(T1* _p1, SmartPointer<T2> const & _sp2) { return _p1 == _sp2.Get(); }
+template <class T1, class T2> EOS_INLINE bool operator==(SmartPointer<T1> const & _sp1, SmartPointer<T2> const & _sp2) { return _sp1() == _sp2(); }
+template <class T1, class T2> EOS_INLINE bool operator==(SmartPointer<T1> const & _sp1, T2* _p2) { return _sp1.operator->() == _p2; }
+template <class T1, class T2> EOS_INLINE bool operator==(T1* _p1, SmartPointer<T2> const & _sp2) { return _p1 == _sp2.operator->(); }
 
-template <class T1, class T2> EOS_INLINE bool operator!=(SmartPointer<T1> const & _sp1, SmartPointer<T2> const & _sp2) { return _sp1.Get() != _sp2.Get(); }
-template <class T1, class T2> EOS_INLINE bool operator!=(SmartPointer<T1> const & _sp1, T2* _p2) { return _sp1.Get() != _p2; }
-template <class T1, class T2> EOS_INLINE bool operator!=(T1* _p1, SmartPointer<T2> const & _sp2) { return _p1 != _sp2.Get(); }
+template <class T1, class T2> EOS_INLINE bool operator!=(SmartPointer<T1> const & _sp1, SmartPointer<T2> const & _sp2) { return _sp1() != _sp2(); }
+template <class T1, class T2> EOS_INLINE bool operator!=(SmartPointer<T1> const & _sp1, T2* _p2) { return _sp1.operator->() != _p2; }
+template <class T1, class T2> EOS_INLINE bool operator!=(T1* _p1, SmartPointer<T2> const & _sp2) { return _p1 != _sp2.operator->(); }
 
-template <class T>EOS_INLINE bool operator<(SmartPointer<T> const & _sp1, SmartPointer<T> const & _sp2) { return std::less<T*>(_sp1.Get(), _sp2.Get()); }
-template <class T>EOS_INLINE bool operator>(SmartPointer<T> const & _sp1, SmartPointer<T> const & _sp2) { return std::greater<T*>(_sp1.Get(), _sp2.Get()); }
+template <class T>EOS_INLINE bool operator<(SmartPointer<T> const & _sp1, SmartPointer<T> const & _sp2) { return _sp1.operator->() < _sp2.operator->(); }
+template <class T>EOS_INLINE bool operator>(SmartPointer<T> const & _sp1, SmartPointer<T> const & _sp2) { return _sp1.operator->() > _sp2.operator->(); }
 
 template <class T, eosSize Alignment, typename... Args>
 class AutoSmartPointer : public SmartPointer<T>
@@ -167,22 +158,22 @@ public:
     }
 
     template <class rhsT, eosSize Alignment>
-    AutoSmartPointer(AutoSmartPointer<rhsT, Alignment> & _rhs) : SmartPointer(_rhs.Get())
+    AutoSmartPointer(AutoSmartPointer<rhsT, Alignment> & _rhs) : SmartPointer(_rhs())
     {
         RefIncrement(m_pObject);
     }
 };
 
 
-template <class T1, eosSize Alignment1, class T2, eosSize Alignment2> EOS_INLINE bool operator==(AutoSmartPointer<T1, Alignment1> const & _sp1, AutoSmartPointer<T2, Alignment2> const & _sp2) { return _sp1.Get() == _sp2.Get(); }
-template <class T1, eosSize Alignment1, class T2, eosSize Alignment2> EOS_INLINE bool operator==(AutoSmartPointer<T1, Alignment1> const & _sp1, T2* _p2) { return _sp1.Get() == _p2; }
-template <class T1, eosSize Alignment1, class T2, eosSize Alignment2> EOS_INLINE bool operator==(T1* _p1, AutoSmartPointer<T2, Alignment2> const & _sp2) { return _p1 == _sp2.Get(); }
+template <class T1, eosSize Alignment1, class T2, eosSize Alignment2> EOS_INLINE bool operator==(AutoSmartPointer<T1, Alignment1> const & _sp1, AutoSmartPointer<T2, Alignment2> const & _sp2) { return _sp1() == _sp2(); }
+template <class T1, eosSize Alignment1, class T2, eosSize Alignment2> EOS_INLINE bool operator==(AutoSmartPointer<T1, Alignment1> const & _sp1, T2* _p2) { return _sp1() == _p2; }
+template <class T1, eosSize Alignment1, class T2, eosSize Alignment2> EOS_INLINE bool operator==(T1* _p1, AutoSmartPointer<T2, Alignment2> const & _sp2) { return _p1 == _sp2(); }
 
-template <class T1, eosSize Alignment1, class T2, eosSize Alignment2> EOS_INLINE bool operator!=(AutoSmartPointer<T1, Alignment1> const & _sp1, AutoSmartPointer<T2, Alignment2> const & _sp2) { return _sp1.Get() != _sp2.Get(); }
-template <class T1, eosSize Alignment1, class T2, eosSize Alignment2> EOS_INLINE bool operator!=(AutoSmartPointer<T1, Alignment1> const & _sp1, T2* _p2) { return _sp1.Get() != _p2; }
-template <class T1, eosSize Alignment1, class T2, eosSize Alignment2> EOS_INLINE bool operator!=(T1* _p1, AutoSmartPointer<T2, Alignment2> const & _sp2) { return _p1 != _sp2.Get(); }
+template <class T1, eosSize Alignment1, class T2, eosSize Alignment2> EOS_INLINE bool operator!=(AutoSmartPointer<T1, Alignment1> const & _sp1, AutoSmartPointer<T2, Alignment2> const & _sp2) { return _sp1() != _sp2(); }
+template <class T1, eosSize Alignment1, class T2, eosSize Alignment2> EOS_INLINE bool operator!=(AutoSmartPointer<T1, Alignment1> const & _sp1, T2* _p2) { return _sp1() != _p2; }
+template <class T1, eosSize Alignment1, class T2, eosSize Alignment2> EOS_INLINE bool operator!=(T1* _p1, AutoSmartPointer<T2, Alignment2> const & _sp2) { return _p1 != _sp2(); }
 
-template <class T, eosSize Alignment>EOS_INLINE bool operator<(AutoSmartPointer<T, Alignment> const & _sp1, AutoSmartPointer<T, Alignment> const & _sp2) { return std::less<T*>(_sp1.Get(), _sp2.Get()); }
-template <class T, eosSize Alignment>EOS_INLINE bool operator>(AutoSmartPointer<T, Alignment> const & _sp1, AutoSmartPointer<T, Alignment> const & _sp2) { return std::greater<T*>(_sp1.Get(), _sp2.Get()); }
+template <class T, eosSize Alignment>EOS_INLINE bool operator<(AutoSmartPointer<T, Alignment> const & _sp1, AutoSmartPointer<T, Alignment> const & _sp2) { return std::less<T*>(_sp1(), _sp2()); }
+template <class T, eosSize Alignment>EOS_INLINE bool operator>(AutoSmartPointer<T, Alignment> const & _sp1, AutoSmartPointer<T, Alignment> const & _sp2) { return std::greater<T*>(_sp1(), _sp2()); }
 
 EOS_NAMESPACE_END
