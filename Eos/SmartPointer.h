@@ -112,6 +112,11 @@ public:
     T& operator*() const { return *m_pObject; }
     T* operator->() const { return  m_pObject; }
 
+    // accessor for general purpose
+    // be carefull!
+    T& Get() const { return *m_pObject; }
+    T* GetPtr() const { return  m_pObject; }
+
 protected:
     EOS_INLINE SmartObject::RefCount RefIncrement(SmartObject* _pObject)
     {
