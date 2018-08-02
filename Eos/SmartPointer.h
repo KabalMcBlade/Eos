@@ -55,7 +55,7 @@ public:
     }
 
     template <typename U>
-    SmartPointer(SmartPointer<U> & _x) : m_pObject(dynamic_cast<T*>(_x.GetPtr()))
+    SmartPointer(SmartPointer<U> & _x) : m_pObject(_x.GetPtr())
     {
         RefIncrement(m_pObject);
     }
@@ -72,20 +72,7 @@ public:
 
     ~SmartPointer()
     {
-        if (m_pObject == nullptr)
-        {
-            return;
-        }
-
-        // auto destroy object allocated
-        const SmartObject::RefCount refCount = RefDecrement(m_pObject);
-
-        if (refCount == 0)
-        {
-            eosDelete(m_pObject);
-        }
-
-        m_pObject = nullptr;
+        Release();
     }
 
     SmartPointer & operator=(SmartPointer const &_Source)
@@ -104,6 +91,24 @@ public:
     { 
         SmartPointer(_pSource).Swap(*this);
         return *this; 
+    }
+
+    void Release()
+    {
+        if (m_pObject == nullptr)
+        {
+            return;
+        }
+
+        // auto destroy object allocated
+        const SmartObject::RefCount refCount = RefDecrement(m_pObject);
+
+        if (refCount == 0)
+        {
+            eosDelete(m_pObject);
+        }
+
+        m_pObject = nullptr;
     }
 
     eosBool IsValid() const { return m_pObject != nullptr; }
