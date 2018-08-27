@@ -53,4 +53,8 @@ EOS_NAMESPACE_BEGIN
 #define eosStringStreamFast                 std::basic_stringstream<char, std::char_traits<char>, StlAllocator<char, LinearAllocPolicy<char>> >
 #define eosStringStreamStack                std::basic_stringstream<char, std::char_traits<char>, StlAllocator<char, StackAllocPolicy<char>> >
 
+#define eosIStringStream                    std::basic_istringstream<char, std::char_traits<char>, StlAllocator<char, HeapAllocPolicy<char>> >
+#define eosIStringStreamFast                std::basic_istringstream<char, std::char_traits<char>, StlAllocator<char, LinearAllocPolicy<char>> >
+#define eosIStringStreamStack               std::basic_istringstream<char, std::char_traits<char>, StlAllocator<char, StackAllocPolicy<char>> >
+
 EOS_NAMESPACE_END
