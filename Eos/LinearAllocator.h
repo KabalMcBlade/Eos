@@ -17,7 +17,13 @@ public:
         eosSize uiMask = EOS_MEMORY_ALIGNMENT_SIZE - 1;
         m_uiSize = (_uiSize + uiMask) & ~uiMask;
 
-        m_uipLinear = (eosU8*)std::calloc(m_uiSize, sizeof(eosU8));
+#ifdef EOS_x64
+        m_uipLinear = (eosU8*)calloc(m_uiSize, sizeof(eosU8));
+#else
+        m_uipLinear = (eosU8*)_aligned_malloc(m_uiSize * sizeof(eosU8), EOS_MEMORY_ALIGNMENT_SIZE);
+        memset(m_uipLinear, 0, m_uiSize * sizeof(eosU8));
+#endif // EOS_x64
+
         eosAssert(m_uipLinear, "Memory is not allocated!");
 
         m_uipLast = m_uipLinear;
@@ -33,7 +39,12 @@ public:
         m_log.Shutdown();
 #endif
 
-        std::free(m_uipLinear);
+#ifdef EOS_x64
+        free(m_uipLinear);
+#else
+        _aligned_free(m_uipLinear);
+#endif // EOS_x64
+
         m_uipLinear = nullptr;
         m_uipLast = nullptr;
         m_uiSize = 0;

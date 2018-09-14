@@ -18,12 +18,26 @@ public:
         m_uiBlockSize = _uiBlockSize;
         m_uiBlockCount = _uiBlockCount;
 
-        m_uipBlocks = (eosSize*)std::calloc(m_uiBlockCount, sizeof(eosSize));
+#ifdef EOS_x64
+        m_uipBlocks = (eosSize*)calloc(m_uiBlockCount, sizeof(eosSize));
+#else
+        m_uipBlocks = (eosSize*)_aligned_malloc(m_uiBlockCount * sizeof(eosSize), EOS_MEMORY_ALIGNMENT_SIZE);
+        memset(m_uipBlocks, 0, m_uiBlockCount * sizeof(eosSize));
+#endif // EOS_x64
+
+        eosAssert(m_uipBlocks, "Memory is not allocated!");
 
         eosSize uiMask = EOS_MEMORY_ALIGNMENT_SIZE - 1;
         eosSize totalSize = ((m_uiBlockSize * m_uiBlockCount) + uiMask) & ~uiMask;
 
-        m_uipStack = (eosU8*)std::calloc(totalSize, sizeof(eosU8));
+#ifdef EOS_x64
+        m_uipStack = (eosU8*)calloc(totalSize, sizeof(eosU8));
+#else
+        m_uipStack = (eosU8*)_aligned_malloc(totalSize * sizeof(eosU8), EOS_MEMORY_ALIGNMENT_SIZE);
+        memset(m_uipStack, 0, totalSize * sizeof(eosU8));
+#endif // EOS_x64
+
+        eosAssert(m_uipStack, "Memory is not allocated!");
 
 #if defined(_DEBUG) && defined(EOS_MEMORYLOAD)
         m_log.Init("stack.log", totalSize);
@@ -36,8 +50,14 @@ public:
         m_log.Shutdown();
 #endif
 
-        std::free(m_uipStack);
-        std::free(m_uipBlocks);
+#ifdef EOS_x64
+        free(m_uipStack);
+        free(m_uipBlocks);
+#else
+        _aligned_free(m_uipStack);
+        _aligned_free(m_uipBlocks);
+#endif // EOS_x64
+
         m_uipStack = nullptr;
         m_uipBlocks = nullptr;
         m_uiBlockCount = 0;

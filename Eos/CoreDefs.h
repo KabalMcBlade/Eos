@@ -8,6 +8,7 @@
 #include <assert.h>     // for assert
 #include <cstddef>      // for std::size_t
 #include <cstdlib>      // for std::calloc, etc...
+#include <malloc.h>     // for _aligned_malloc, malloc, etc...
 #include <iostream>     // for cerr and other stuff
 #include <shared_mutex> // for std::shared_mutex, std::unique_lock, etc...
 #include <atomic>       // for std::atomic_uint_fast32_t, etc...
@@ -40,6 +41,23 @@
 #endif 
 
 
+#if _WIN32 || _WIN64
+#if _WIN64
+#define EOS_x64
+#else
+#define EOS_x86
+#endif
+#elif __GNUC__
+#if __x86_64__ || __ppc64__
+#define EOS_x64
+#else
+#define EOS_x86
+#endif
+#else
+#define EOS_x86
+#endif
+
+
 // comment to avoid memory trace
 // Anyway this work ONLY in debug due the _DEBUG defined in the project options
 #define EOS_MEMORYLOAD
@@ -65,7 +83,6 @@
 
 // Memory alignment
 #define EOS_MEMORY_ALIGNMENT(x)    __declspec(align(x))
-#define EOS_IS_ALIGNED(ptr, alignment)    ((uint_fast64_t)ptr & (alignment - 1)) == 0
 
 // BIT MANIPULATION
 #define EOS_BIT_SET(value, bitpos)          ((value) |= (1<<(bitpos)))
