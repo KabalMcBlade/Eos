@@ -308,4 +308,21 @@ EOS_INLINE bool operator!=(StlAllocator<T, P, Tr> const& lhs, OtherAllocator con
     return !operator==(lhs, rhs);
 }
 
+///////////////////////////////////////////////////////////////////////////
+//                  HASH
+///////////////////////////////////////////////////////////////////////////
+
+template<typename T, typename U>
+class hash_pair
+{
+public:
+    eosSize operator()(const std::pair<T, U>& _hash) const
+    {
+        eosSize a = static_cast<eosSize>(std::hash<T>()(_hash.first));
+        eosSize b = static_cast<eosSize>(std::hash<U>()(_hash.second));
+        return a ^ b;
+    }
+};
+
+
 EOS_NAMESPACE_END
