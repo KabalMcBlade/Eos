@@ -12,4 +12,4 @@
 #include "SmartPointer.h"
 
 #include "StlAllocators.h"
-#include "StlAllocatorsMacro.h"
+#include "StlAllocatorsTypes.h"
