@@ -140,14 +140,7 @@ int main()
         SmartPointer<SmartCat> catSmartClone3 = catSmart;
     }
 
-    // 3. Using smart pointer with automatically allocation and automatically deallocation
-    {
-        AutoSmartPointer<SmartCat, EOS_MEMORY_ALIGNMENT_SIZE> catPtr;
-
-        AutoSmartPointer<SmartCat, EOS_MEMORY_ALIGNMENT_SIZE, int> catPtrVariadic(10);
-    }
-    
-    // 4. Realloc Test
+    // 3. Realloc Test
     // This one have no sense I know, but I did it, so enjoy xD
     // NOTE: exit the eosNewRaw for "plain" memory, so if you using that you can also use the eosReallocRaw, that actually works as expected :D
     {
@@ -157,7 +150,7 @@ int main()
         eosDelete(catPtr2);
     }
     
-    // 5. Superclass Test
+    // 4. Superclass Test
     {
         SuperCat* superCatPtr = eosNew(SuperCat, EOS_MEMORY_ALIGNMENT_SIZE);
         eosDelete(superCatPtr);
@@ -166,7 +159,7 @@ int main()
         eosDelete(superCatPtr2);
     }
     
-    // 6. Containers Test
+    // 5. Containers Test
     {
         eosVector(Cat) catArray;
         catArray.resize(10);
