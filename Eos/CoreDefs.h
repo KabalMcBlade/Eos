@@ -34,10 +34,8 @@
 
 #ifdef EOS_EXPORTS
 #define EOS_DLL __declspec(dllexport)
-#elif EOS_IMPORTS 
-#define EOS_DLL __declspec(dllimport)
 #else
-#define EOS_DLL
+#define EOS_DLL __declspec(dllimport)
 #endif 
 
 
@@ -58,19 +56,12 @@
 #endif
 
 
-// comment to avoid memory trace
-// Anyway this work ONLY in debug due the _DEBUG defined in the project options
-#define EOS_MEMORYLOAD
-
 
 // defines for easy namespace-ing
 #define EOS_NAMESPACE_BEGIN namespace eos {
 #define EOS_NAMESPACE_END };  
 
 #define EOS_USING_NAMESPACE using namespace eos; 
-
-#define EOS_MEMORY_ALIGNMENT_SIZE 16
-
 
 #define EOS_OPTIMIZATION_OFF __pragma(optimize("",off))
 #define EOS_OPTIMIZATION_ON __pragma(optimize("",on))
@@ -84,7 +75,20 @@
 // Memory alignment
 #define EOS_MEMORY_ALIGNMENT(x)    __declspec(align(x))
 
+
 // BIT MANIPULATION
+#ifdef EOS_x64
+
+#define EOS_BIT_SET(value, bitpos)          ((value) |= (static_cast<unsigned __int64>(1)<<(bitpos)))
+#define EOS_BIT_SET_IFF(value, iff, bitpos) ((value) ^= (-iff ^ (value)) & (static_cast<unsigned __int64>(1) << (bitpos)))
+#define EOS_BIT_SET_VALUE(value, mask, set) ((value) = (((value) & (mask)) | (set)))
+
+#define EOS_BIT_CHECK(value, bitpos)        ((value) & (static_cast<unsigned __int64>(1)<<(bitpos))) 
+#define EOS_BIT_CLEAR(value, bitpos)        ((value) &= ~((static_cast<unsigned __int64>(1)) << (bitpos)))
+#define EOS_BIT_TOGGLE(value, bitpos)       ((value) ^= ((static_cast<unsigned __int64>(1))<<(bitpos)))
+
+#else
+
 #define EOS_BIT_SET(value, bitpos)          ((value) |= (1<<(bitpos)))
 #define EOS_BIT_SET_IFF(value, iff, bitpos) ((value) ^= (-iff ^ (value)) & (1 << (bitpos)))
 #define EOS_BIT_SET_VALUE(value, mask, set) ((value) = (((value) & (mask)) | (set)))
@@ -92,6 +96,10 @@
 #define EOS_BIT_CHECK(value, bitpos)        ((value) & (1<<(bitpos))) 
 #define EOS_BIT_CLEAR(value, bitpos)        ((value) &= ~((1) << (bitpos)))
 #define EOS_BIT_TOGGLE(value, bitpos)       ((value) ^= (1<<(bitpos)))
+
+
+#endif
+
 #define EOS_BIT_GET(value, mask)            ((value) & (mask)) 
 
 
@@ -99,14 +107,17 @@
 // TYPEDEFS
 //////////////////////////////////////////////////////////////////////////
 
-typedef    bool            eosBool;
-typedef uint_fast8_t    eosU8;
-typedef uint_fast32_t   eosU32;
-typedef uint_fast64_t   eosU64;
-typedef int_fast8_t     eosS8;
-typedef int_fast32_t    eosS32;
-typedef int_fast64_t    eosS64;
+typedef std::int8_t     eosS8;
+typedef std::int32_t    eosS32;
+typedef std::int64_t    eosS64;
+
+typedef std::uint8_t    eosU8;
+typedef std::uint32_t   eosU32;
+typedef std::uint64_t   eosU64;
+
 typedef std::size_t     eosSize;
+
+typedef bool            eosBool;
 
 
 //////////////////////////////////////////////////////////////////////////

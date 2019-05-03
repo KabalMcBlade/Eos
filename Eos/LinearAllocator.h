@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CoreDefs.h"
+#include "MemoryDefines.h"
 
 #if defined(_DEBUG) && defined(EOS_MEMORYLOAD)
 #include "Log.h"
@@ -11,6 +12,71 @@ EOS_NAMESPACE_BEGIN
 EOS_MEMORY_ALIGNMENT(EOS_MEMORY_ALIGNMENT_SIZE) class LinearAllocator
 {
 public:
+    EOS_INLINE LinearAllocator()
+    {
+        Init(EOS_LINEAR_MEMORY);
+    }
+
+    EOS_INLINE ~LinearAllocator()
+    {
+        Shutdown();
+    }
+
+    EOS_INLINE void* Alloc(eosSize _uiSize, eosSize _uiAlignment)
+    {
+        eosAssertReturnValue(_uiSize > 0, "Size must be passed greater then 0", nullptr);
+        eosAssertReturnValue(IsPowerOf2(_uiAlignment), "Alignment must be power of 2", nullptr);
+        eosAssertReturnValue(m_uipLinear, "Heap allocator is not allocated", nullptr);
+
+        SharedMutexUniqueLock lock(m_memoryMutex);
+
+        const eosSize uiMask = _uiAlignment - 1;
+        const eosSize uiSize = (_uiSize + uiMask) & ~uiMask;
+
+        eosU8* uipCurrentLinear = m_uipLast;
+        eosU8* uipResult = uipCurrentLinear;
+
+        uipCurrentLinear += uiSize;
+
+        eosAssertReturnValue(uipCurrentLinear >= m_uipLast && uipCurrentLinear < m_uipLinear + m_uiSize, "Pointer is out of memory", nullptr);
+
+        m_uipLast = uipCurrentLinear;
+
+#if defined(_DEBUG) && defined(EOS_MEMORYLOAD)
+        m_log.WriteAlloc(_uiSize, _uiAlignment, uiSize, uiSize, uipResult);
+#endif
+
+        return uipResult;
+    }
+
+    EOS_INLINE void Free(void *_uipBuffer)
+    {
+#if defined(_DEBUG) && defined(EOS_MEMORYLOAD)
+        m_log.WriteCustomMessage("[NO FREE AVAIALBE]: DON'T CHECK MEMORY IN THIS CONTEXT!");
+#endif
+        // Free is not allowed
+    }
+
+    EOS_INLINE void* Reallocate(void *_uipBuffer, eosSize _uiSize, eosSize _uiAlignment)
+    {
+#if defined(_DEBUG) && defined(EOS_MEMORYLOAD)
+        m_log.WriteCustomMessage("[NO REALLOC AVAIALBE]: DON'T CHECK MEMORY IN THIS CONTEXT!");
+#endif
+
+        // Realloc is not allowed
+        return _uipBuffer;
+    }
+
+    EOS_INLINE eosBool IsPointerOwned(void *_uipBuffer)
+    {
+        return (_uipBuffer >= m_uipLinear && _uipBuffer <= m_uipLinear + m_uiSize);
+    }
+
+private:
+    EOS_INLINE eosBool IsPowerOf2(eosSize _x)
+    {
+        return _x && !(_x & (_x - 1));
+    }
 
     EOS_INLINE void Init(eosSize _uiSize)
     {
@@ -50,55 +116,6 @@ public:
         m_uiSize = 0;
     }
 
-    EOS_INLINE void* Alloc(eosSize _uiSize, eosSize _uiAlignment)
-    {
-        {
-            SharedMutexUniqueLock lock(m_memoryMutex);
-
-            eosAssertReturnValue(m_uipLinear, "Linear allocator is not allocated", nullptr);
-            eosAssertReturnValue(_uiAlignment <= EOS_MEMORY_ALIGNMENT_SIZE, "Alignment must be less or equal to the allocator alignment (16)", nullptr);
-
-            eosSize uiMask = _uiAlignment - 1;
-            eosSize uiSize = (_uiSize + uiMask) & ~uiMask;
-
-            eosU8* uipCurrentLinear = m_uipLast;
-            eosU8* uipResult = uipCurrentLinear;
-
-            uipCurrentLinear += uiSize;
-
-            eosAssertReturnValue(uipCurrentLinear >= m_uipLast && uipCurrentLinear < m_uipLinear + m_uiSize * sizeof(eosU8), "Pointer is out of memory", nullptr);
-
-            m_uipLast = uipCurrentLinear;
-
-#if defined(_DEBUG) && defined(EOS_MEMORYLOAD)
-            m_log.WriteAlloc(_uiSize, _uiAlignment, uiSize, uiSize, uipResult);
-#endif
-
-            return uipResult;
-        }
-    }
-
-    EOS_INLINE void Free(void *_uipBuffer)
-    {
-#if defined(_DEBUG) && defined(EOS_MEMORYLOAD)
-        m_log.WriteCustomMessage("[NO FREE AVAIALBE]: DON'T CHECK MEMORY IN THIS CONTEXT!");
-#endif
-        // Free is not allowed
-    }
-
-    EOS_INLINE void* Reallocate(void *_uipBuffer, eosSize _uiSize, eosSize _uiAlignment)
-    {
-        // I know is stupid, but just for coherence
-        eosAssertReturnValue(_uiAlignment <= EOS_MEMORY_ALIGNMENT_SIZE, "Alignment must be less or equal to the allocator alignment", nullptr);
-
-#if defined(_DEBUG) && defined(EOS_MEMORYLOAD)
-        m_log.WriteCustomMessage("[NO REALLOC AVAIALBE]: DON'T CHECK MEMORY IN THIS CONTEXT!");
-#endif
-
-        // Realloc is not allowed
-        return _uipBuffer;
-    }
-
 private:
     eosU8* m_uipLinear;
     eosU8* m_uipLast;
@@ -113,5 +130,7 @@ private:
     Log m_log;
 #endif
 };
+
+extern "C" EOS_DLL LinearAllocator g_linearAllocator;
 
 EOS_NAMESPACE_END

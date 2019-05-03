@@ -25,6 +25,7 @@ This is the most complex allocator implemented so far and it would be the most u
 	- It reuses the free chunk if new request is small enough, otherwise it'll use a new chunk at the end of buffer
 - Can release chunk to reuse it
 - Can reallocate memory
+- Using the define EOS_HEAP_MEMORY_USE_BUDDY (defined by default) is enablig the Buddy logic to merge empty consecutive blocks
 
 
 ### Stack allocator
@@ -53,49 +54,27 @@ So you can use the vector, string, etc... provided by Eos and adding new contain
 ## Smart pointers
 
 Eos implememnts smart pointers.
-It implements 2 kind of smart pointers:
+
+
+### Usage
+
+- Open the file `MemoryDefines.h` and set the parameters you need:
+	- Define or not the EOS_MEMORYLOAD macro, which let the allocator dump out the memory on file (see section later)
+	- Define the default alignment size in the EOS_MEMORY_ALIGNMENT_SIZE macro, used for the memory class itself and the allocator header size (by default is 16 and I racommend that)
+	- Define or not the EOS_HEAP_MEMORY_USE_BUDDY macro, which the allocator using the ***Buddy logic***, this means is slower but merge consecutive empty memory block in order to have bigger one later on
+		- It works only with the Heap Allocator
+	- Define the memory size you want:
+		- EOS_HEAP_MEMORY
+		- EOS_LINEAR_MEMORY
+		- EOS_STACK_BLOCK_SIZE and EOS_STACK_BLOCK_COUNT
+
+- Where you need to use the allocators add include file `Eos.h`
+
 - Smart pointers
-	- You've to allocate your object and than set to a smart pointer handler
-- Auto Smart pointers
-	- Automatically create inside itself the object at declaration time
+	1. Inherit your class/struct from `SmartObject`
+	2. Handle it with `SmartPointer<>` 
 
-
-## Memory Manager Singleton
-
-The memory manager is a singleton class which wrap the allocators. 
-You **MUST** initialize at the begin of your program and yoy **MUST** shutdown at the end of the program.
-
-
-```cpp
-    MemoryManager::Instance().GetHeapAllocator().Init(ALL_HEAP_MEMORY);
-    MemoryManager::Instance().GetLinearAllocator().Init(ALL_LINEAR_MEMORY);
-    MemoryManager::Instance().GetStackAllocator().Init(ALL_STACK_MEMORY, MAX_STACK_MEMORY_BLOCK);
-```
-
-and
-
-```cpp
-    MemoryManager::Instance().GetHeapAllocator().Shutdown();
-    MemoryManager::Instance().GetLinearAllocator().Shutdown();
-    MemoryManager::Instance().GetStackAllocator().Shutdown();
-```
-
-
-## New and Delete
-
-You can use the wrapper for new and delete functions provided by Eos, or you can simply direct call the Memory Manager or even call the allocators manually.
-Anyway my advise is to use the code/logic provided by Eos.
-
-
-### Some code explanation
-
-1. Define own allocators aligment
-	- Also the memory allocators have it own aligment, the costant where it is defined is `EOS_MEMORY_ALIGNMENT_SIZE`, default is 16 but you can change according with the aligment memory rules.
-
-2. Smart pointers
-	- If you decide to use the smart pointer, remember to inherit from `SmartObject`
-
-3. New and Delete
+- New and Delete
 	- Eos implements the define for new and delete functions, these are `eosNew` and `eosDelete`, for both of theme there are different versions:
 		- The `eosNew` and `eosDelete` are used for Heap Allocator
 		- The `eosNewLinear` and `eosDeleteLinear` are used for Linear Allocator

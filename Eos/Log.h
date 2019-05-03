@@ -96,6 +96,26 @@ public:
         fputs(_msg, m_file);
     }
 
+    void WriteBeginRealloc()
+    {
+        if (!m_opened)
+        {
+            return;
+        }
+
+        fputs("[REALLOC]\n{\n", m_file);
+    }
+
+    void WriteEndRealloc()
+    {
+        if (!m_opened)
+        {
+            return;
+        }
+
+        fputs("}\n", m_file);
+    }
+
 private:
     eosSize m_memoryAllocated;
     eosSize m_memoryFreed;

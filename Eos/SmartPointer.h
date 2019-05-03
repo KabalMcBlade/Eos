@@ -1,12 +1,16 @@
 #pragma once
 
 #include "CoreDefs.h"
-#include "MemoryManager.h"
+
+#include "LinearAllocator.h"
+#include "StackAllocator.h"
+#include "HeapAllocator.h"
+
 
 
 EOS_NAMESPACE_BEGIN
 
-template struct EOS_DLL std::atomic<uint_fast32_t>;
+template struct EOS_DLL std::atomic<eosU32>;
 
 class EOS_DLL SmartObject
 {
@@ -34,7 +38,7 @@ public:
     }
 
 private:
-    typedef std::atomic_uint_fast32_t   Atomic;
+    typedef std::atomic_uint32_t   Atomic;
 
     mutable Atomic m_referenceCount;
 };

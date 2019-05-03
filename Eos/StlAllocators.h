@@ -2,7 +2,9 @@
 
 #include "CoreDefs.h"
 
-#include "MemoryManager.h"
+#include "LinearAllocator.h"
+#include "StackAllocator.h"
+#include "HeapAllocator.h"
 
 // to remove error C2589 using std::min / max
 #define NOMINMAX
