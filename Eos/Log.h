@@ -60,7 +60,7 @@ public:
         m_opened = false;
     }
 
-    void WriteAlloc(eosSize _size, eosSize _alignment, eosSize _finalSize, eosSize _chunkSize, void *_ptr)
+    void WriteAlloc(eosSize _size, eosSize _alignment, eosSize _sizeAllocated, void *_ptr)
     {
         if (!m_opened)
         {
@@ -68,8 +68,8 @@ public:
         }
 
         std::ostringstream os;
-        os << "[ALLOC] Pointer: " << _ptr << "; Size: " << _size << "; Alignment: " << _alignment << "; Size:" << _chunkSize << "[" << _finalSize << "]" << std::endl;
-        m_memoryAllocated += _chunkSize;
+        os << "[ALLOC] Pointer: " << _ptr << "; Size Requested: " << _size << "; Alignment: " << _alignment << "; Size Allocated:" << _sizeAllocated << std::endl;
+        m_memoryAllocated += _sizeAllocated;
         fputs(os.str().c_str(), m_file);
     }
 

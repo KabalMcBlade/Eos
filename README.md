@@ -33,6 +33,7 @@ This is the most complex allocator implemented so far and it would be the most u
 - Use a block count per block size logic
 	- Keep track of the free blocks (need to iterate from the begin)
 	- Reuse the free block if new request fit it
+	- Use more blocks if the allocation request needs to fit
 - Can release block to reuse it
 - Can reallocate memory
 

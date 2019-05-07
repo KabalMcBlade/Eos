@@ -25,6 +25,7 @@ public:
     EOS_INLINE void* Alloc(eosSize _uiSize, eosSize _uiAlignment)
     {
         eosAssertReturnValue(_uiSize > 0, "Size must be passed greater then 0", nullptr);
+        eosAssertReturnValue(_uiAlignment > 0, "Alignment must be passed greater then 0", nullptr);
         eosAssertReturnValue(IsPowerOf2(_uiAlignment), "Alignment must be power of 2", nullptr);
         eosAssertReturnValue(m_uipLinear, "Heap allocator is not allocated", nullptr);
 
@@ -43,7 +44,7 @@ public:
         m_uipLast = uipCurrentLinear;
 
 #if defined(_DEBUG) && defined(EOS_MEMORYLOAD)
-        m_log.WriteAlloc(_uiSize, _uiAlignment, uiSize, uiSize, uipResult);
+        m_log.WriteAlloc(_uiSize, _uiAlignment, uiSize, uipResult);
 #endif
 
         return uipResult;

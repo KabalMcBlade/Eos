@@ -7,6 +7,17 @@
 #include "Log.h"
 #endif
 
+#ifdef EOS_x64
+#define EOS_STACK_HEADER_BIT_HAS_BEEN_ALLOCATED     63
+#define EOS_STACK_HEADER_MASK_COUNT_READ            0x7FFFFFFFFFFFFFFF
+#define EOS_STACK_HEADER_MASK_COUNT_WRITE           0x8000000000000000
+#else
+#define EOS_STACK_HEADER_BIT_HAS_BEEN_ALLOCATED     31
+#define EOS_STACK_HEADER_MASK_SIZE_READ             0x000000007FFFFFFF
+#define EOS_STACK_HEADER_MASK_COUNT_WRITE           0x0000000080000000
+#endif
+
+
 EOS_NAMESPACE_BEGIN
 
 EOS_MEMORY_ALIGNMENT(EOS_MEMORY_ALIGNMENT_SIZE) class StackAllocator
@@ -26,35 +37,58 @@ public:
     EOS_INLINE void* Alloc(eosSize _uiSize, eosSize _uiAlignment)
     {
         eosAssertReturnValue(_uiSize > 0, "Size must be passed greater then 0", nullptr);
+        eosAssertReturnValue(_uiAlignment > 0, "Alignment must be passed greater then 0", nullptr);
+        eosAssertReturnValue(_uiAlignment <= EOS_MEMORY_ALIGNMENT_SIZE, "Alignment must be lesser or equal to the overall memory alignment", nullptr);
         eosAssertReturnValue(IsPowerOf2(_uiAlignment), "Alignment must be power of 2", nullptr);
-        eosAssertReturnValue(m_uipStack, "Heap allocator is not allocated", nullptr);
+        eosAssertReturnValue(m_uipStack, "Stack allocator is not allocated", nullptr);
 
         SharedMutexUniqueLock lock(m_memoryMutex);
 
         const eosSize uiMask = _uiAlignment - 1;
         const eosSize uiSize = (_uiSize + uiMask) & ~uiMask;
 
-        eosAssertReturnValue(uiSize < m_uiBlockSize, "Pointer is out of memory", nullptr);
+        const eosSize uiNumBlocksNeed = 1 + ((uiSize - 1) / m_uiBlockSize);
 
         // find a free block
         eosBool bFoundBlock = false;
         eosSize uiBlock = 0;
+        eosSize uiBlockCountUsed = 0;
         for (eosSize i = 0; i < m_uiBlockCount; ++i)
         {
             // there are a free block?
-            if (m_uipBlocks[i] == 0)
+            const Header& pHeader = m_uipBlocks[i];
+
+            const eosU8 uiHasBeenAllocated = EOS_BIT_CHECK(pHeader, EOS_STACK_HEADER_BIT_HAS_BEEN_ALLOCATED) > 0;
+            const eosSize uiCurrentBlockCount = EOS_BIT_GET(pHeader, EOS_STACK_HEADER_MASK_COUNT_READ);
+
+            if (!uiHasBeenAllocated)
             {
-                m_uipBlocks[i] = 1;
-                uiBlock = i;
-                bFoundBlock = true;
-                break;
+                if (++uiBlockCountUsed == uiNumBlocksNeed)
+                {
+                    const eosSize uiOffset = (uiBlockCountUsed - 1);
+                    const eosSize uiBlockIndex = i - uiOffset;
+
+                    Header& pHeaderToUpdate = m_uipBlocks[uiBlockIndex];
+
+                    EOS_BIT_SET(pHeaderToUpdate, EOS_STACK_HEADER_BIT_HAS_BEEN_ALLOCATED);
+                    EOS_BIT_SET_VALUE(pHeaderToUpdate, EOS_STACK_HEADER_MASK_COUNT_WRITE, uiBlockCountUsed);
+
+                    uiBlock = uiBlockIndex;
+                    bFoundBlock = true;
+                    break;
+                }
+            }
+            else // no free adjacent block found but needs, so reset and restart
+            {
+                i += uiCurrentBlockCount;   // jump to the first free block
+                uiBlockCountUsed = 0;
             }
         }
 
         eosAssertReturnValue(bFoundBlock && uiBlock < m_uiBlockCount, "There are any free block in the stack", nullptr);
 
 #if defined(_DEBUG) && defined(EOS_MEMORYLOAD)
-        m_log.WriteAlloc(_uiSize, _uiAlignment, uiSize, (uiBlock * m_uiBlockSize), m_uipStack + (uiBlock * m_uiBlockSize));
+        m_log.WriteAlloc(_uiSize, _uiAlignment, m_uiBlockSize * uiNumBlocksNeed, m_uipStack + (uiBlock * m_uiBlockSize));
 #endif
         // return memory block
         return m_uipStack + (uiBlock * m_uiBlockSize);
@@ -72,16 +106,22 @@ public:
         // convert block
         eosSize uiBlock = static_cast<eosSize>(uipBuffer - m_uipStack) / m_uiBlockSize;
 
+        Header& pHeaderToUpdate = m_uipBlocks[uiBlock];
+
 #if defined(_DEBUG) && defined(EOS_MEMORYLOAD)
-        m_log.WriteFree((uiBlock * m_uiBlockSize), _uipBuffer);
+        const eosSize uiCurrentBlockCount = EOS_BIT_GET(pHeaderToUpdate, EOS_STACK_HEADER_MASK_COUNT_READ);
+        m_log.WriteFree((uiCurrentBlockCount * m_uiBlockSize), _uipBuffer);
 #endif
 
-        m_uipBlocks[uiBlock] = 0;
+        EOS_BIT_CLEAR(pHeaderToUpdate, EOS_STACK_HEADER_BIT_HAS_BEEN_ALLOCATED);
+        EOS_BIT_SET_VALUE(pHeaderToUpdate, EOS_STACK_HEADER_MASK_COUNT_WRITE, 0);
     }
 
 
     EOS_INLINE void* Reallocate(void *_uipBuffer, eosSize _uiSize, eosSize _uiAlignment)
     {
+        eosAssertReturnValue(_uiAlignment > 0, "Alignment must be passed greater then 0", nullptr);
+        eosAssertReturnValue(_uiAlignment <= EOS_MEMORY_ALIGNMENT_SIZE, "Alignment must be lesser or equal to the overall memory alignment", nullptr);
         eosAssertReturnValue(_uiSize > 0, "Size must be passed greater then 0", nullptr);
         eosAssertReturnValue(IsPowerOf2(_uiAlignment), "Alignment must be power of 2", nullptr);
 
@@ -129,10 +169,10 @@ private:
         m_uiBlockCount = _uiBlockCount;
 
 #ifdef EOS_x64
-        m_uipBlocks = (eosSize*)calloc(m_uiBlockCount, sizeof(eosSize));
+        m_uipBlocks = (Header*)calloc(m_uiBlockCount, sizeof(Header));
 #else
-        m_uipBlocks = (eosSize*)_aligned_malloc(m_uiBlockCount * sizeof(eosSize), EOS_MEMORY_ALIGNMENT_SIZE);
-        memset(m_uipBlocks, 0, m_uiBlockCount * sizeof(eosSize));
+        m_uipBlocks = (Header*)_aligned_malloc(m_uiBlockCount * sizeof(Header), EOS_MEMORY_ALIGNMENT_SIZE);
+        memset(m_uipBlocks, 0, m_uiBlockCount * sizeof(Header));
 #endif // EOS_x64
 
         eosAssert(m_uipBlocks, "Memory is not allocated!");
@@ -175,9 +215,15 @@ private:
     }
 
 private:
+#ifdef EOS_x64
+    typedef eosU64 Header;
+#else
+    typedef eosU32 Header;
+#endif
+
     eosSize m_uiBlockSize;
     eosSize m_uiBlockCount;
-    eosSize* m_uipBlocks;
+    Header* m_uipBlocks;
     eosU8* m_uipStack;
 
     typedef std::shared_mutex               SharedMutex;

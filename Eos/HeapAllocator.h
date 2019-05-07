@@ -43,6 +43,8 @@ public:
     {
         eosAssertReturnValue(m_uipHeap, "Heap allocator is not allocated", nullptr);
         eosAssertReturnValue(_uiSize > 0, "Size must be passed greater then 0", nullptr);
+        eosAssertReturnValue(_uiAlignment > 0, "Alignment must be passed greater then 0", nullptr);
+        eosAssertReturnValue(_uiAlignment <= EOS_MEMORY_ALIGNMENT_SIZE, "Alignment must be lesser or equal to the overall memory alignment", nullptr);
         eosAssertReturnValue(IsPowerOf2(_uiAlignment), "Alignment must be power of 2", nullptr);
 
         SharedMutexUniqueLock lock(m_memoryMutex);
@@ -85,24 +87,18 @@ public:
 
         eosAssertReturnValue(uipCurrentHeap >= m_uipHeap && uipCurrentHeap <= m_uipHeap + m_uiSize * sizeof(eosU8), "Pointer is out of bound of the heap", nullptr);
 
-        if (uiOldPtrFound)
-        {
-#if defined(_DEBUG) && defined(EOS_MEMORYLOAD)
-            m_log.WriteAlloc(_uiSize, _uiAlignment, uiSize, uiCurrentSize, (uipCurrentHeap + EOS_HEAP_CONSTANT_HEADER_SIZE));
-#endif
-        }
-        else
+        if (!uiOldPtrFound)
         {
             uiCurrentSize = uiSize;
 
             EOS_BIT_SET(*pHeader, EOS_HEAP_HEADER_BIT_HAS_BEEN_ALLOCATED);
             EOS_BIT_SET(*pHeader, EOS_HEAP_HEADER_BIT_STILL_IN_USE);
             EOS_BIT_SET_VALUE(*pHeader, EOS_HEAP_HEADER_MASK_SIZE_WRITE, uiCurrentSize);
+        }
 
 #if defined(_DEBUG) && defined(EOS_MEMORYLOAD)
-            m_log.WriteAlloc(_uiSize, _uiAlignment, uiSize, uiSize, (uipCurrentHeap + EOS_HEAP_CONSTANT_HEADER_SIZE));
+        m_log.WriteAlloc(_uiSize, _uiAlignment, uiCurrentSize, (uipCurrentHeap + EOS_HEAP_CONSTANT_HEADER_SIZE));
 #endif
-        }
 
         return uipCurrentHeap + EOS_HEAP_CONSTANT_HEADER_SIZE;
     }
@@ -174,6 +170,8 @@ public:
     EOS_INLINE void* Reallocate(void *_uipBuffer, eosSize _uiSize, eosSize _uiAlignment)
     {
         eosAssertReturnValue(_uiSize > 0, "Size must be passed greater then 0", nullptr);
+        eosAssertReturnValue(_uiAlignment > 0, "Alignment must be passed greater then 0", nullptr);
+        eosAssertReturnValue(_uiAlignment <= EOS_MEMORY_ALIGNMENT_SIZE, "Alignment must be lesser or equal to the overall memory alignment", nullptr);
         eosAssertReturnValue(IsPowerOf2(_uiAlignment), "Alignment must be power of 2", nullptr);
 
         void* ptr = nullptr;
