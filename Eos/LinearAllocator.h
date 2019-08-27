@@ -1,137 +1,107 @@
 #pragma once
 
-#include "CoreDefs.h"
-#include "MemoryDefines.h"
 
-#if defined(_DEBUG) && defined(EOS_MEMORYLOAD)
-#include "Log.h"
-#endif
+#include "CoreDefs.h"
+
+#include "MemoryUtils.h"
+
 
 EOS_NAMESPACE_BEGIN
 
-EOS_MEMORY_ALIGNMENT(EOS_MEMORY_ALIGNMENT_SIZE) class LinearAllocator
+
+class eosLinearAllocator
 {
 public:
-    EOS_INLINE LinearAllocator()
+    eosLinearAllocator(eosSize _size, eosSize /*_offset*/) : m_owner(true)
     {
-        Init(EOS_LINEAR_MEMORY);
+        m_start = (eosUPtr)malloc(_size);
+        m_end = static_cast<eosUPtr>(m_start) + _size;
+        m_current = m_start;
     }
 
-    EOS_INLINE ~LinearAllocator()
+//     eosLinearAllocator(eosSize _startSize, eosSize _maxSize, eosSize /*_offset*/)
+//     {
+//     }
+
+    eosLinearAllocator(void* _start, void* _end, eosSize /*_offset*/) : m_owner(false)
     {
-        Shutdown();
+        eosAssertDialog(_start);
+        eosAssertDialog(_end);
+        eosAssertDialog(_start < _end);
+
+        m_start = (eosUPtr)_start;
+        m_end = (eosUPtr)_end;
+        m_current = m_start;
     }
 
-    EOS_INLINE void* Alloc(eosSize _uiSize, eosSize _uiAlignment)
+    ~eosLinearAllocator()
     {
-        eosAssertReturnValue(_uiSize > 0, "Size must be passed greater then 0", nullptr);
-        eosAssertReturnValue(_uiAlignment > 0, "Alignment must be passed greater then 0", nullptr);
-        eosAssertReturnValue(IsPowerOf2(_uiAlignment), "Alignment must be power of 2", nullptr);
-        eosAssertReturnValue(m_uipLinear, "Heap allocator is not allocated", nullptr);
-
-        SharedMutexUniqueLock lock(m_memoryMutex);
-
-        const eosSize uiMask = _uiAlignment - 1;
-        const eosSize uiSize = (_uiSize + uiMask) & ~uiMask;
-
-        eosU8* uipCurrentLinear = m_uipLast;
-        eosU8* uipResult = uipCurrentLinear;
-
-        uipCurrentLinear += uiSize;
-
-        eosAssertReturnValue(uipCurrentLinear >= m_uipLast && uipCurrentLinear < m_uipLinear + m_uiSize, "Pointer is out of memory", nullptr);
-
-        m_uipLast = uipCurrentLinear;
-
-#if defined(_DEBUG) && defined(EOS_MEMORYLOAD)
-        m_log.WriteAlloc(_uiSize, _uiAlignment, uiSize, uipResult);
-#endif
-
-        return uipResult;
+        if (m_owner)
+        {
+            free((void*)m_start);
+        }
     }
 
-    EOS_INLINE void Free(void *_uipBuffer)
+
+    EOS_INLINE void* Allocate(eosSize _size, eosSize _alignment, eosSize _offset)
     {
-#if defined(_DEBUG) && defined(EOS_MEMORYLOAD)
-        m_log.WriteCustomMessage("[NO FREE AVAIALBE]: DON'T CHECK MEMORY IN THIS CONTEXT!");
-#endif
-        // Free is not allowed
+        eosAssertReturnValue(_size > 0, nullptr, "Size must be greater then 0");
+        eosAssertReturnValue(_alignment > 0, nullptr, "Alignment must be greater then 0");
+        eosAssertReturnValue(eosIsPowerOf2(_alignment), nullptr, "Alignment must be power of 2");
+  
+        m_current = eosPointerUtils::AlignTop(m_current + _offset, _alignment) - _offset;
+        void* ptr = (void*)m_current;
+        m_current += _size;
+
+        eosAssertReturnValue(ptr, nullptr, "Linear Allocator returned unexpected null");
+        eosAssertReturnValue(m_current < m_end, nullptr, "Linear Allocator is out of memory");
+
+        return ptr;
     }
 
-    EOS_INLINE void* Reallocate(void *_uipBuffer, eosSize _uiSize, eosSize _uiAlignment)
+    // is a fake Free
+    EOS_INLINE void Free(void* /*_ptr*/, eosSize /*_size*/)
     {
-#if defined(_DEBUG) && defined(EOS_MEMORYLOAD)
-        m_log.WriteCustomMessage("[NO REALLOC AVAIALBE]: DON'T CHECK MEMORY IN THIS CONTEXT!");
-#endif
-
-        // Realloc is not allowed
-        return _uipBuffer;
+        //eosAssertReturnVoid(false, "Linear Allocator cannot free memory");
     }
 
-    EOS_INLINE eosBool IsPointerOwned(void *_uipBuffer)
+    EOS_INLINE void Reset() 
     {
-        return (_uipBuffer >= m_uipLinear && _uipBuffer <= m_uipLinear + m_uiSize);
+        m_current = m_start;
     }
 
-private:
-    EOS_INLINE eosBool IsPowerOf2(eosSize _x)
+    // is a fake Purge
+    EOS_INLINE void Purge()
     {
-        return _x && !(_x & (_x - 1));
+        Reset();
     }
 
-    EOS_INLINE void Init(eosSize _uiSize)
+    EOS_INLINE eosSize GetTotalUsedSize()  const
     {
-        eosSize uiMask = EOS_MEMORY_ALIGNMENT_SIZE - 1;
-        m_uiSize = (_uiSize + uiMask) & ~uiMask;
-
-#ifdef EOS_x64
-        m_uipLinear = (eosU8*)calloc(m_uiSize, sizeof(eosU8));
-#else
-        m_uipLinear = (eosU8*)_aligned_malloc(m_uiSize * sizeof(eosU8), EOS_MEMORY_ALIGNMENT_SIZE);
-        memset(m_uipLinear, 0, m_uiSize * sizeof(eosU8));
-#endif // EOS_x64
-
-        eosAssert(m_uipLinear, "Memory is not allocated!");
-
-        m_uipLast = m_uipLinear;
-
-#if defined(_DEBUG) && defined(EOS_MEMORYLOAD)
-        m_log.Init("linear.log", m_uiSize);
-#endif
+        return m_current - m_start;
     }
 
-    EOS_INLINE void Shutdown()
+    EOS_INLINE eosSize GetPhysicalSize() const
     {
-#if defined(_DEBUG) && defined(EOS_MEMORYLOAD)
-        m_log.Shutdown();
-#endif
+        return m_end - m_start;
+    }
 
-#ifdef EOS_x64
-        free(m_uipLinear);
-#else
-        _aligned_free(m_uipLinear);
-#endif // EOS_x64
-
-        m_uipLinear = nullptr;
-        m_uipLast = nullptr;
-        m_uiSize = 0;
+    EOS_INLINE eosSize GetVirtualSize() const
+    {
+        return GetPhysicalSize();
     }
 
 private:
-    eosU8* m_uipLinear;
-    eosU8* m_uipLast;
-    eosSize m_uiSize;
-
-    typedef std::shared_mutex               SharedMutex;
-    typedef std::unique_lock<SharedMutex>   SharedMutexUniqueLock;
-
-    SharedMutex m_memoryMutex;
-
-#if defined(_DEBUG) && defined(EOS_MEMORYLOAD)
-    Log m_log;
-#endif
+    eosUPtr m_start;
+    eosUPtr m_end;
+    eosUPtr m_current;
+    eosBool m_owner;
 };
 
-extern "C" EOS_DLL LinearAllocator g_linearAllocator;
+#if defined(_DEBUG)
+using eosDefaultLinearAllocationPolicy = eosAllocationPolicy<eosLinearAllocator, eosAllocationHeaderU32>;
+#else
+using eosDefaultLinearAllocateionPolicy = eosAllocationPolicy<eosLinearAllocator, eosNoAllocationHeader>;
+#endif
 
 EOS_NAMESPACE_END

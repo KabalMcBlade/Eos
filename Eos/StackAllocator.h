@@ -1,241 +1,176 @@
 #pragma once
 
+
 #include "CoreDefs.h"
-#include "MemoryDefines.h"
 
-#if defined(_DEBUG) && defined(EOS_MEMORYLOAD)
-#include "Log.h"
-#endif
+#include "VirtualMemory.h"
+#include "MemoryUtils.h"
 
-#ifdef EOS_x64
-#define EOS_STACK_HEADER_BIT_HAS_BEEN_ALLOCATED     63
-#define EOS_STACK_HEADER_MASK_COUNT_READ            0x7FFFFFFFFFFFFFFF
-#define EOS_STACK_HEADER_MASK_COUNT_WRITE           0x8000000000000000
-#else
-#define EOS_STACK_HEADER_BIT_HAS_BEEN_ALLOCATED     31
-#define EOS_STACK_HEADER_MASK_SIZE_READ             0x000000007FFFFFFF
-#define EOS_STACK_HEADER_MASK_COUNT_WRITE           0x0000000080000000
-#endif
-
+#include "StackFromBottomAllocatorPolicy.h"
+#include "StackFromTopAllocatorPolicy.h"
 
 EOS_NAMESPACE_BEGIN
 
-EOS_MEMORY_ALIGNMENT(EOS_MEMORY_ALIGNMENT_SIZE) class StackAllocator
+template<typename eosStackAllocatorLayoutPolicy, eosBool HugeMemoryPage, eosBool CanGrow>
+class eosStackAllocator
 {
 public:
-    EOS_INLINE StackAllocator()
+    eosStackAllocator(eosSize _size, eosSize /*_offset*/) : m_owner(EOwnerType_Malloc), m_maxSize(0)
     {
-        Init(EOS_STACK_BLOCK_SIZE, EOS_STACK_BLOCK_COUNT);
+        eosAssertDialog(_size > 0);
+        eosAssertDialog(!CanGrow);      // With this constructor the allocator CANNOT grow
+
+        void* ptr = malloc(_size);
+        eosAssertDialog(ptr);
+
+        m_stackAllocatorLayout.Init(this, reinterpret_cast<eosUPtr>(ptr), 0, _size, CanGrow);
+        m_stackAllocatorLayout.Reset(this, 0, CanGrow);
     }
 
-    EOS_INLINE ~StackAllocator()
+    eosStackAllocator(eosSize _startSize, eosSize _maxSize, eosSize /*_offset*/) : m_owner(EOwnerType_VirtualAlloc), m_maxSize(_maxSize)
     {
-        Shutdown();
-    }
+        eosAssertDialog(_startSize <= _maxSize);
+        eosAssertDialog(CanGrow);      // With this constructor the allocator CAN grow
 
-    // in this version, the first time the allocation is called, set the size of the block
-    EOS_INLINE void* Alloc(eosSize _uiSize, eosSize _uiAlignment)
-    {
-        eosAssertReturnValue(_uiSize > 0, "Size must be passed greater then 0", nullptr);
-        eosAssertReturnValue(_uiAlignment > 0, "Alignment must be passed greater then 0", nullptr);
-        eosAssertReturnValue(_uiAlignment <= EOS_MEMORY_ALIGNMENT_SIZE, "Alignment must be lesser or equal to the overall memory alignment", nullptr);
-        eosAssertReturnValue(IsPowerOf2(_uiAlignment), "Alignment must be power of 2", nullptr);
-        eosAssertReturnValue(m_uipStack, "Stack allocator is not allocated", nullptr);
+        m_growSize = eosVirtualMemory::GetPageSize();
 
-        SharedMutexUniqueLock lock(m_memoryMutex);
+        void* ptr = eosVirtualMemory::ReserveAddressSpace(_maxSize, HugeMemoryPage);
+        eosAssertDialog(ptr);
 
-        const eosSize uiMask = _uiAlignment - 1;
-        const eosSize uiSize = (_uiSize + uiMask) & ~uiMask;
+        m_stackAllocatorLayout.Init(this, reinterpret_cast<eosUPtr>(ptr), _startSize, _maxSize, CanGrow);
+        m_stackAllocatorLayout.Reset(this, _startSize, CanGrow);
 
-        const eosSize uiNumBlocksNeed = 1 + ((uiSize - 1) / m_uiBlockSize);
-
-        // find a free block
-        eosBool bFoundBlock = false;
-        eosSize uiBlock = 0;
-        eosSize uiBlockCountUsed = 0;
-        for (eosSize i = 0; i < m_uiBlockCount; ++i)
+        if (_startSize > 0)
         {
-            // there are a free block?
-            const Header& pHeader = m_uipBlocks[i];
+            m_stackAllocatorLayout.Grow(this, _startSize, HugeMemoryPage);
+        }
+    }
 
-            const eosU8 uiHasBeenAllocated = EOS_BIT_CHECK(pHeader, EOS_STACK_HEADER_BIT_HAS_BEEN_ALLOCATED) > 0;
-            const eosSize uiCurrentBlockCount = EOS_BIT_GET(pHeader, EOS_STACK_HEADER_MASK_COUNT_READ);
+    eosStackAllocator(void* _start, void* _end, eosSize /*_offset*/) : m_owner(EOwnerType_None), m_maxSize(0)
+    {
+        eosAssertDialog(_start);
+        eosAssertDialog(_end);
+        eosAssertDialog(_start < _end);
+        eosAssertDialog(!CanGrow);      // With this constructor the allocator CANNOT grow
 
-            if (!uiHasBeenAllocated)
+        m_stackAllocatorLayout.Init(this,  reinterpret_cast<eosUPtr>(_start), 0, reinterpret_cast<eosUPtr>(_end) - reinterpret_cast<eosUPtr>(_start), CanGrow);
+        m_stackAllocatorLayout.Reset(this, 0, CanGrow);
+    }
+
+    ~eosStackAllocator()
+    {
+        switch (m_owner)
+        {
+        case EOwnerType_Malloc:
+            free(reinterpret_cast<void*>(m_virtualStart));
+            break;
+        case EOwnerType_VirtualAlloc:
+            m_stackAllocatorLayout.Release(this);
+            break;
+        case EOwnerType_None:
+        default:
+            break;
+        }
+    }
+
+
+    EOS_INLINE void* Allocate(eosSize _size, eosSize _alignment, eosSize _offset)
+    {
+        eosAssertReturnValue(_size > 0, nullptr, "Size must be greater then 0");
+        eosAssertReturnValue(_alignment > 0, nullptr, "Alignment must be greater then 0");
+        eosAssertReturnValue(eosIsPowerOf2(_alignment), nullptr, "Alignment must be power of 2");
+
+        _size += kAllocationOffset;
+        //_offset += kAllocationOffset;
+
+        const eosUPtr lastPhysicalCurrent = m_physicalCurrent;
+
+        m_physicalCurrent = m_stackAllocatorLayout.AlignPointer(this, _size, _alignment, _offset);
+
+        const eosU32 headerSize = m_stackAllocatorLayout.CalculateHeaderSize(this, lastPhysicalCurrent, _size);
+
+        if (m_stackAllocatorLayout.IsOutOfMemory(this, _size))
+        {
+            eosAssertReturnValue(CanGrow, nullptr, "StackAllocator out of memory.");
+
+            if (!m_stackAllocatorLayout.Grow(this, _size, HugeMemoryPage))
             {
-                if (++uiBlockCountUsed == uiNumBlocksNeed)
-                {
-                    const eosSize uiOffset = (uiBlockCountUsed - 1);
-                    const eosSize uiBlockIndex = i - uiOffset;
-
-                    Header& pHeaderToUpdate = m_uipBlocks[uiBlockIndex];
-
-                    EOS_BIT_SET(pHeaderToUpdate, EOS_STACK_HEADER_BIT_HAS_BEEN_ALLOCATED);
-                    EOS_BIT_SET_VALUE(pHeaderToUpdate, EOS_STACK_HEADER_MASK_COUNT_WRITE, uiBlockCountUsed);
-
-                    uiBlock = uiBlockIndex;
-                    bFoundBlock = true;
-                    break;
-                }
-            }
-            else // no free adjacent block found but needs, so reset and restart
-            {
-                i += uiCurrentBlockCount;   // jump to the first free block
-                uiBlockCountUsed = 0;
+                eosAssertReturnValue(false, nullptr, "StackAllocator out of memory");
             }
         }
 
-        eosAssertReturnValue(bFoundBlock && uiBlock < m_uiBlockCount, "There are any free block in the stack", nullptr);
-
-#if defined(_DEBUG) && defined(EOS_MEMORYLOAD)
-        m_log.WriteAlloc(_uiSize, _uiAlignment, m_uiBlockSize * uiNumBlocksNeed, m_uipStack + (uiBlock * m_uiBlockSize));
-#endif
-        // return memory block
-        return m_uipStack + (uiBlock * m_uiBlockSize);
+        return m_stackAllocatorLayout.Allocate(this, headerSize, _size);
     }
 
-    EOS_INLINE void Free(void *_uipBuffer)
+    EOS_INLINE void Free(void* _ptr, eosSize /*_size*/)
     {
-        SharedMutexUniqueLock lock(m_memoryMutex);
+        eosAssertDialog(_ptr);
+        eosAssertReturnVoid(_ptr == reinterpret_cast<void*>(m_lastPtr), "The free must rollback the stack in order!");
 
-        eosU8 *uipBuffer = static_cast<eosU8 *>(_uipBuffer);
-
-        // check if this pointer is inside our list
-        eosAssertReturnVoid(uipBuffer >= m_uipStack && uipBuffer < m_uipStack + (m_uiBlockSize * m_uiBlockCount), "Pointer is not in the stack");
-
-        // convert block
-        eosSize uiBlock = static_cast<eosSize>(uipBuffer - m_uipStack) / m_uiBlockSize;
-
-        Header& pHeaderToUpdate = m_uipBlocks[uiBlock];
-
-#if defined(_DEBUG) && defined(EOS_MEMORYLOAD)
-        const eosSize uiCurrentBlockCount = EOS_BIT_GET(pHeaderToUpdate, EOS_STACK_HEADER_MASK_COUNT_READ);
-        m_log.WriteFree((uiCurrentBlockCount * m_uiBlockSize), _uipBuffer);
-#endif
-
-        EOS_BIT_CLEAR(pHeaderToUpdate, EOS_STACK_HEADER_BIT_HAS_BEEN_ALLOCATED);
-        EOS_BIT_SET_VALUE(pHeaderToUpdate, EOS_STACK_HEADER_MASK_COUNT_WRITE, 0);
+        m_stackAllocatorLayout.Free(this, _ptr);
     }
 
-
-    EOS_INLINE void* Reallocate(void *_uipBuffer, eosSize _uiSize, eosSize _uiAlignment)
+    EOS_INLINE void Reset()
     {
-        eosAssertReturnValue(_uiAlignment > 0, "Alignment must be passed greater then 0", nullptr);
-        eosAssertReturnValue(_uiAlignment <= EOS_MEMORY_ALIGNMENT_SIZE, "Alignment must be lesser or equal to the overall memory alignment", nullptr);
-        eosAssertReturnValue(_uiSize > 0, "Size must be passed greater then 0", nullptr);
-        eosAssertReturnValue(IsPowerOf2(_uiAlignment), "Alignment must be power of 2", nullptr);
-
-        void* ptr = nullptr;
-
-#if defined(_DEBUG) && defined(EOS_MEMORYLOAD)
-        {
-            m_log.WriteBeginRealloc();
-#endif
-
-            ptr = Alloc(_uiSize, _uiAlignment);
-
-            {
-                SharedMutexUniqueLock lock(m_memoryMutex);
-
-                memcpy(ptr, _uipBuffer, _uiSize);
-            }
-
-            Free(_uipBuffer);
-
-#if defined(_DEBUG) && defined(EOS_MEMORYLOAD)
-            m_log.WriteEndRealloc();
-        }
-#endif
-
-        return ptr;  
+        m_stackAllocatorLayout.Reset(this, 0, CanGrow);
     }
 
-    EOS_INLINE eosBool IsPointerOwned(void *_uipBuffer)
+    EOS_INLINE void Purge()
     {
-        return (_uipBuffer >= m_uipStack && _uipBuffer <= m_uipStack + (m_uiBlockSize * m_uiBlockCount));
+        m_stackAllocatorLayout.Purge(this);
+    }
+
+    EOS_INLINE eosSize GetTotalUsedSize()  const
+    {
+        return m_stackAllocatorLayout.GetTotalUsedSize(this);
+    }
+
+    EOS_INLINE eosSize GetPhysicalSize() const
+    {
+        return m_stackAllocatorLayout.GetPhysicalSize(this);
+    }
+
+    EOS_INLINE eosSize GetVirtualSize() const
+    {
+        return m_stackAllocatorLayout.GetVirtualSize(this);
     }
 
 private:
-    EOS_INLINE eosBool IsPowerOf2(eosSize _x)
+
+    friend class eosStackFromBottomAllocatorPolicy;
+    friend class eosStackFromTopAllocatorPolicy;
+
+    enum EOwnerType
     {
-        return _x && !(_x & (_x - 1));
-    }
+        EOwnerType_None = 0,
+        EOwnerType_Malloc,
+        EOwnerType_VirtualAlloc
+    };
 
-    EOS_INLINE void Init(eosSize _uiBlockSize, eosSize _uiBlockCount)
-    {
-        eosAssertReturnVoid(!(_uiBlockSize % 2) && !(_uiBlockCount % 2), "Stack allocator: Block count and Block size must be multiple of 2!");
+    static constexpr eosSize kAllocationOffset = sizeof(eosU64);
+    static_assert(kAllocationOffset == 8, "Allocation offset has wrong size.");
 
-        m_uiBlockSize = _uiBlockSize;
-        m_uiBlockCount = _uiBlockCount;
+    eosStackAllocatorLayoutPolicy m_stackAllocatorLayout;
+    eosUPtr m_virtualStart;
+    eosUPtr m_virtualEnd;
+    eosUPtr m_physicalEnd;
+    eosUPtr m_physicalCurrent;
+    eosUPtr m_growSize;
+    eosUPtr m_lastPtr;
 
-#ifdef EOS_x64
-        m_uipBlocks = (Header*)calloc(m_uiBlockCount, sizeof(Header));
-#else
-        m_uipBlocks = (Header*)_aligned_malloc(m_uiBlockCount * sizeof(Header), EOS_MEMORY_ALIGNMENT_SIZE);
-        memset(m_uipBlocks, 0, m_uiBlockCount * sizeof(Header));
-#endif // EOS_x64
+    eosSize m_maxSize;
 
-        eosAssert(m_uipBlocks, "Memory is not allocated!");
-
-        eosSize uiMask = EOS_MEMORY_ALIGNMENT_SIZE - 1;
-        eosSize totalSize = ((m_uiBlockSize * m_uiBlockCount) + uiMask) & ~uiMask;
-
-#ifdef EOS_x64
-        m_uipStack = (eosU8*)calloc(totalSize, sizeof(eosU8));
-#else
-        m_uipStack = (eosU8*)_aligned_malloc(totalSize * sizeof(eosU8), EOS_MEMORY_ALIGNMENT_SIZE);
-        memset(m_uipStack, 0, totalSize * sizeof(eosU8));
-#endif // EOS_x64
-
-        eosAssert(m_uipStack, "Memory is not allocated!");
-
-#if defined(_DEBUG) && defined(EOS_MEMORYLOAD)
-        m_log.Init("stack.log", totalSize);
-#endif
-    }
-
-    EOS_INLINE void Shutdown()
-    {
-#if defined(_DEBUG) && defined(EOS_MEMORYLOAD)
-        m_log.Shutdown();
-#endif
-
-#ifdef EOS_x64
-        free(m_uipStack);
-        free(m_uipBlocks);
-#else
-        _aligned_free(m_uipStack);
-        _aligned_free(m_uipBlocks);
-#endif // EOS_x64
-
-        m_uipStack = nullptr;
-        m_uipBlocks = nullptr;
-        m_uiBlockCount = 0;
-        m_uiBlockSize = 0;
-    }
-
-private:
-#ifdef EOS_x64
-    typedef eosU64 Header;
-#else
-    typedef eosU32 Header;
-#endif
-
-    eosSize m_uiBlockSize;
-    eosSize m_uiBlockCount;
-    Header* m_uipBlocks;
-    eosU8* m_uipStack;
-
-    typedef std::shared_mutex               SharedMutex;
-    typedef std::unique_lock<SharedMutex>   SharedMutexUniqueLock;
-
-    SharedMutex m_memoryMutex;
-
-#if defined(_DEBUG) && defined(EOS_MEMORYLOAD)
-    Log m_log;
-#endif
+    EOwnerType m_owner;
 };
 
-extern "C" EOS_DLL StackAllocator g_stackAllocator;
+
+using eosStackAllocatorBottomNonGrowable = eosStackAllocator<eosStackFromBottomAllocatorPolicy, false, false>;
+using eosStackAllocatorBottomGrowable = eosStackAllocator<eosStackFromBottomAllocatorPolicy, false, true>;
+
+using eosStackAllocatorTopNonGrowable = eosStackAllocator<eosStackFromTopAllocatorPolicy, false, false>;
+using eosStackAllocatorTopGrowable = eosStackAllocator<eosStackFromTopAllocatorPolicy, false, true>;
+
+using eosStandardStackAllocator = eosStackAllocatorTopNonGrowable;
+
 
 EOS_NAMESPACE_END

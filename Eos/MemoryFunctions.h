@@ -2,129 +2,114 @@
 
 #include "CoreDefs.h"
 
-#include "LinearAllocator.h"
-#include "StackAllocator.h"
-#include "HeapAllocator.h"
+#include "MemoryUtils.h"
+
 
 EOS_NAMESPACE_BEGIN
 
-//////////////////////////////////////////////////////////////////////////
-template<typename T>
-EOS_INLINE void FreeHeap(T *_Pointer)
+template<typename T, class Allocator>
+EOS_INLINE void Free(T* _object, Allocator* _allocator)
 {
-    _Pointer->~T();
-    g_heapAllocator.Free(_Pointer);
+    _object->~T();
+    _allocator->Free(_object);
 }
 
-EOS_INLINE void FreeRawHeap(void *_Pointer)
+template<typename T, class Allocator>
+EOS_INLINE T* AllocArray(Allocator* _allocator, eosSize _cnt, const char* _file, eosU32 _line, eosNonPODType)
 {
-    g_heapAllocator.Free(_Pointer);
+    union
+    {
+        void* as_void;
+        eosSize* as_size;
+        T* as_T;
+    };
+
+    as_T = AllocArray<T>(_allocator, _cnt, _file, _line, eosPODType());
+
+    const T* const onePastLast = as_T + _cnt;
+    while (as_T < onePastLast)
+    {
+        new (as_T++) T;
+    }
+
+    return as_T - _cnt;
 }
 
-template<typename T>
-EOS_INLINE T* ReallocHeap(T *_Pointer, eosSize _uiSize, eosSize _uiAlignment)
+template<typename T, class Allocator>
+EOS_INLINE T* AllocArray(Allocator* _allocator, eosSize _cnt, const char* _file, eosU32 _line, eosPODType)
 {
-    T* newPtr = new (g_heapAllocator.Alloc(_uiSize, _uiAlignment)) T;
-    memcpy(newPtr, _Pointer, _uiSize);
-    FreeHeap<T>(_Pointer);
-    return newPtr;
+    union
+    {
+        void* as_void;
+        ionSize* as_size;
+        T* as_T;
+    };
+
+    const eosSize numHeaderElements = sizeof(eosSize) / sizeof(T) + ((eosBool)(sizeof(eosSize) % sizeof(T)) || 0);
+
+    as_void = _allocator->Allocate(sizeof(T) * (_cnt + numHeaderElements), alignof(T), eosSourceInfo(_file, _line));
+
+    // store number of elements at the back of the first element of the array.
+    as_T += numHeaderElements;
+    *(as_size - 1) = _cnt;
+
+    return as_T;
 }
 
-EOS_INLINE void* ReallocRawHeap(void *_Pointer, eosSize _uiSize, eosSize _uiAlignment)
+template <typename T, class Allocator>
+EOS_INLINE void FreeArray(T* _ptr, Allocator* _allocator)
 {
-    return g_heapAllocator.Reallocate(_Pointer, _uiSize, _uiAlignment);
+    FreeArray(_ptr, _allocator, eosIntToType<eosIsPOD<T>::value>());
 }
 
-
-//////////////////////////////////////////////////////////////////////////
-template<typename T>
-EOS_INLINE void FreeLinear(T *_Pointer)
+template<typename T, class Allocator>
+EOS_INLINE void FreeArray(T* _ptr, Allocator* _allocator, eosNonPODType)
 {
-    _Pointer->~T();
-    g_linearAllocator.Free(_Pointer);
+    union
+    {
+        eosSize* as_size;
+        T* as_T;
+    };
+
+    as_T = _ptr;
+    const eosSize _cnt = as_size[-1];
+
+    for (eosSize i = _cnt; i > 0; --i)
+    {
+        as_T[i - 1].~T();
+    }
+
+    const eosSize numHeaderElements = sizeof(eosSize) / sizeof(T) + ((eosBool)(sizeof(eosSize) % sizeof(T)) || 0);
+
+    _allocator->Free(as_T - numHeaderElements);
 }
 
-EOS_INLINE void FreeRawLinear(void *_Pointer)
+template<typename T, class Allocator>
+EOS_INLINE void FreeArray(T* _ptr, Allocator& _allocator, eosPODType)
 {
-    g_linearAllocator.Free(_Pointer);
+    union
+    {
+        eosSize* as_size;
+        T* as_T;
+    };
+
+    as_T = _ptr;
+    const eosSize numHeaderElements = sizeof(eosSize) / sizeof(T) + ((eosBool)(sizeof(eosSize) % sizeof(T)) || 0);
+
+    _allocator->Free(as_T - numHeaderElements);
 }
 
-template<typename T>
-EOS_INLINE T* ReallocLinear(T *_Pointer, eosSize _uiSize, eosSize _uiAlignment)
-{
-    T* newPtr = new (g_linearAllocator.Alloc(_uiSize, _uiAlignment)) T;
-    memcpy(newPtr, _Pointer, _uiSize);
-    FreeLinear<T>(_Pointer);
-    return newPtr;
-}
-
-EOS_INLINE void* ReallocRawLinear(void *_Pointer, eosSize _uiSize, eosSize _uiAlignment)
-{
-    return g_linearAllocator.Reallocate(_Pointer, _uiSize, _uiAlignment);
-}
-
-
-//////////////////////////////////////////////////////////////////////////
-template<typename T>
-EOS_INLINE void FreeStack(T *_Pointer)
-{
-    _Pointer->~T();
-    g_stackAllocator.Free(_Pointer);
-}
-
-EOS_INLINE void FreeRawStack(void *_Pointer)
-{
-    g_stackAllocator.Free(_Pointer);
-}
-
-template<typename T>
-EOS_INLINE T* ReallocStack(T *_Pointer, eosSize _uiSize, eosSize _uiAlignment)
-{
-    T* newPtr = new (g_stackAllocator.Alloc(_uiSize, _uiAlignment)) T;
-    memcpy(newPtr, _Pointer, _uiSize);
-    FreeStack<T>(_Pointer);
-    return newPtr;
-}
-
-EOS_INLINE void* ReallocRawStack(void *_Pointer, eosSize _uiSize, eosSize _uiAlignment)
-{
-    return g_stackAllocator.Reallocate(_Pointer, _uiSize, _uiAlignment);
-}
 
 EOS_NAMESPACE_END
 
 
-
 // Put outside of scope using namespace scope when required in order to allow to use define without namespace scope
-
 //////////////////////////////////////////////////////////////////////////
-#define eosNew(Type, Alignment, ...)                    new ( eos::g_heapAllocator.Alloc(sizeof(Type), Alignment) ) Type(__VA_ARGS__)
-#define eosNewRaw(Size, Alignment)                      eos::g_heapAllocator.Alloc(Size, Alignment)
 
-#define eosDelete(Object)                               eos::FreeHeap(Object)
-#define eosDeleteRaw(Object)                            eos::FreeRawHeap(Object)
+#define eosNewAligned(Type, Allocator, Alignment, ...)  new ((Allocator)->Allocate(sizeof(Type), Alignment, EOS_MEMORY_SOURCE_ALLOCATION_INFO)) Type(__VA_ARGS__)
+#define eosNew(Type, Allocator, ...)                    eosNewAligned(Type, (Allocator), alignof(Type), __VA_ARGS__)
+#define eosDelete(Object, Allocator)                    eos::Free((Object), (Allocator))
 
-#define eosRealloc(Object, Type, NewSize, Alignment)    eos::ReallocHeap<Type>(Object, NewSize, Alignment)
-#define eosReallocRaw(Object, Size, Alignment)          eos::ReallocRawHeap(Object, Size, Alignment)
-
-
-//////////////////////////////////////////////////////////////////////////
-#define eosNewLinear(Type, Alignment, ...)              new ( eos::g_linearAllocator.Alloc(sizeof(Type), Alignment) ) Type(__VA_ARGS__)
-#define eosNewRawLinear(Size, Alignment)                eos::g_linearAllocator.Alloc(Size, Alignment)
-
-#define eosDeleteLinear(Object)                         eos::FreeLinear(Object)
-#define eosDeleteRawLinear(Object)                      eos::FreeRawLinear(Object)
-
-#define eosReallocLinear(Object, Type, Alignment)       eos::ReallocLinear<Type>(Object, sizeof(Type), Alignment)
-#define eosReallocRawLinear(Object, Size, Alignment)    eos::ReallocRawLinear(Object, Size, Alignment)
-
-
-//////////////////////////////////////////////////////////////////////////
-#define eosNewStack(Type, Alignment, ...)               new ( eos::g_stackAllocator.Alloc(sizeof(Type), Alignment) ) Type(__VA_ARGS__)
-#define eosNewRawStack(Size, Alignment)                 eos::g_stackAllocator.Alloc(Size, Alignment)
-
-#define eosDeleteStack(Object)                          eos::FreeStack(Object)
-#define eosDeleteRawStack(Object)                       eos::FreeRawStack(Object)
-
-#define eosReallocStack(Object, Type, Alignment)        eos::ReallocStack<Type>(Object, sizeof(Type), Alignment)
-#define eosReallocRawStack(Object, Size, Alignment)     eos::ReallocRawStack(Object, Size, Alignment)
+#define eosNewDynamicArray(Type, Count, Allocator)      eos::AllocArray<Type>((Allocator), Count, __FILE__, __LINE__, eos::eosIntToType<eos::eosIsPOD<Type>::value>())
+#define eosNewArray(Type, Allocator)                    eos::AllocArray<eos::eosTypeAndCount<Type>::type>((Allocator), eos::eosTypeAndCount<Type>::count, __FILE__, __LINE__, eos::eosIntToType<eos::eosIsPOD<eos::eosTypeAndCount<Type>::type>::value>())
+#define eosDeleteArray(ObjectArray, Allocator)          eos::FreeArray((ObjectArray), (Allocator))

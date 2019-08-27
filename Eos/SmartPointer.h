@@ -2,25 +2,22 @@
 
 #include "CoreDefs.h"
 
-#include "LinearAllocator.h"
-#include "StackAllocator.h"
-#include "HeapAllocator.h"
-
-
+#include "MemoryFunctions.h"
 
 EOS_NAMESPACE_BEGIN
 
-template struct EOS_DLL std::atomic<eosU32>;
 
-class EOS_DLL SmartObject
+template struct EOS_DLL std::atomic<uint32_t>;
+
+class EOS_DLL eosSmartObject
 {
 public:
     typedef eosU32 RefCount;
 
-    static const RefCount K_INVALID_REFCOUNT = (RefCount)-1;
+    static const RefCount kInvalidRefCount = (RefCount)-1;
 
-    SmartObject() : m_referenceCount(0) {}
-    virtual ~SmartObject() {}
+    eosSmartObject() : m_referenceCount(0) {}
+    virtual ~eosSmartObject() {}
 
     EOS_INLINE RefCount RefIncrement()
     {
@@ -38,128 +35,140 @@ public:
     }
 
 private:
-    typedef std::atomic_uint32_t   Atomic;
-
-    mutable Atomic m_referenceCount;
+    mutable std::atomic_uint32_t m_referenceCount;
 };
 
 
 //////////////////////////////////////////////////////////////////////////
 
 
-template <typename T>
-class SmartPointer
+template <typename T, typename Allocator>
+class eosSmartPointer
 {
-public:
-    SmartPointer() : m_pObject(nullptr) {}
+private:
+    template<typename U, typename Allocator>
+    friend class eosSmartPointer;
 
-    SmartPointer(T* _pObject) : m_pObject(_pObject)
+public:
+    eosSmartPointer(Allocator* _allocator, T* _value) : m_allocator(_allocator), m_object(_value)
     {
-        RefIncrement(m_pObject);
+        // do not need to track who allocated, I keep the allocator anyway
+        RefIncrement(m_object);
+    }
+
+    eosSmartPointer(Allocator* _allocator) : m_allocator(_allocator)
+    {
+        m_object = eosNew(T, m_allocator);
+        RefIncrement(m_object);
     }
 
     template <typename U>
-    SmartPointer(SmartPointer<U> & _x) : m_pObject(_x.GetPtr())
+    eosSmartPointer(eosSmartPointer<U, Allocator> const & _other) : m_allocator(_other.m_allocator), m_object(_other.m_object)
     {
-        RefIncrement(m_pObject);
+        RefIncrement(m_object);
     }
 
-    SmartPointer(SmartPointer const & _Source) : m_pObject(_Source.m_pObject)
+    eosSmartPointer(eosSmartPointer const & _other) : m_allocator(_other.m_allocator), m_object(_other.m_object)
     { 
-        RefIncrement(m_pObject);
+        RefIncrement(m_object);
     }
 
-    SmartPointer(SmartPointer && _Source) : m_pObject(_Source.m_pObject)
-    { 
-        _Source.m_pObject = nullptr; 
-    }
+//     eosSmartPointer(eosSmartPointer && _other) : m_allocator(std::move(_other.m_allocator)), m_object(std::move(_other.m_object))
+//     { 
+//         _other.m_allocator = nullptr;
+//         _other.m_object = nullptr;
+//     }
 
-    ~SmartPointer()
+    ~eosSmartPointer()
     {
         Release();
     }
 
-    SmartPointer & operator=(SmartPointer const &_Source)
+    eosSmartPointer & operator=(eosSmartPointer const &_other)
     { 
-        SmartPointer(_Source).Swap(*this);
+        eosSmartPointer(_other).Swap(*this);
         return *this; 
     }
 
-    SmartPointer & operator=(SmartPointer && _Source)
-    { 
-        SmartPointer(std::forward<SmartPointer>(_Source)).Swap(*this);
-        return *this; 
-    }
+//     eosSmartPointer & operator=(eosSmartPointer && _other)
+//     { 
+//         eosSmartPointer(std::forward<eosSmartPointer>(_other)).Swap(*this);
+//         return *this; 
+//     }
 
-    SmartPointer & operator=(T* _pSource)
+    eosSmartPointer & operator=(T* _other)
     { 
-        SmartPointer(_pSource).Swap(*this);
+        eosSmartPointer(_other).Swap(*this);
         return *this; 
     }
 
     void Release()
     {
-        if (m_pObject == nullptr)
+        eosAssertDialog(m_allocator);
+
+        if (m_object == nullptr)
         {
             return;
         }
 
         // auto destroy object allocated
-        const SmartObject::RefCount refCount = RefDecrement(m_pObject);
+        const eosSmartObject::RefCount refCount = RefDecrement(m_object);
 
         if (refCount == 0)
         {
-            eosDelete(m_pObject);
+            eosDelete(m_object, m_allocator);
         }
 
-        m_pObject = nullptr;
+        m_object = nullptr;
     }
 
-    eosBool IsValid() const { return m_pObject != nullptr; }
-    eosU32 GetRefCount() const { return IsValid() ? GetRefCount(m_pObject) : 0; }
+    eosBool IsValid() const { return m_object != nullptr; }
+    eosU32 GetRefCount() const { return IsValid() ? GetRefCount(m_object) : 0; }
 
-    T& operator*() const { return *m_pObject; }
-    T* operator->() const { return  m_pObject; }
+    T& operator*() const { return *m_object; }
+    T* operator->() const { return  m_object; }
 
     // accessor for general purpose
     // be careful!
-    T& Get() const { return *m_pObject; }
-    T* GetPtr() const { return  m_pObject; }
+    T& Get() const { return *m_object; }
+    T* GetPtr() const { return  m_object; }
 
 protected:
-    EOS_INLINE SmartObject::RefCount RefIncrement(SmartObject* _pObject)
+    EOS_INLINE eosSmartObject::RefCount RefIncrement(eosSmartObject* _object)
     {
-        return (_pObject) ? _pObject->RefIncrement() : SmartObject::K_INVALID_REFCOUNT;
+        return (_object) ? _object->RefIncrement() : eosSmartObject::kInvalidRefCount;
     }
 
-    EOS_INLINE SmartObject::RefCount RefDecrement(SmartObject* _pObject)
+    EOS_INLINE eosSmartObject::RefCount RefDecrement(eosSmartObject* _object)
     {
-        return (_pObject) ? _pObject->RefDecrement() : SmartObject::K_INVALID_REFCOUNT;
+        return (_object) ? _object->RefDecrement() : eosSmartObject::kInvalidRefCount;
     }
 
-    EOS_INLINE SmartObject::RefCount GetRefCount(SmartObject* _pObject)
+    EOS_INLINE eosSmartObject::RefCount GetRefCount(eosSmartObject* _object)
     {
-        return (_pObject) ? _pObject->GetRefCount() : SmartObject::K_INVALID_REFCOUNT;
+        return (_object) ? _object->GetRefCount() : eosSmartObject::kInvalidRefCount;
     }
 
-    void Swap(SmartPointer &_source)
+    void Swap(eosSmartPointer &_source)
     {
-        std::swap(m_pObject, _source.m_pObject);
+        std::swap(m_allocator, _source.m_allocator);
+        std::swap(m_object, _source.m_object);
     }
 
-    T * m_pObject;
+    Allocator* m_allocator;
+    T * m_object;
 };
 
-template <class T1, class T2> EOS_INLINE bool operator==(SmartPointer<T1> const & _sp1, SmartPointer<T2> const & _sp2) { return _sp1.GetPtr() == _sp2.GetPtr(); }
-template <class T1, class T2> EOS_INLINE bool operator==(SmartPointer<T1> const & _sp1, T2* _p2) { return _sp1.GetPtr() == _p2; }
-template <class T1, class T2> EOS_INLINE bool operator==(T1* _p1, SmartPointer<T2> const & _sp2) { return _p1 == _sp2.GetPtr(); }
+template <class T1, class T2, typename Allocator> EOS_INLINE bool operator==(eosSmartPointer<T1, typename Allocator> const & _sp1, eosSmartPointer<T2, typename Allocator> const & _sp2) { return _sp1->GetPtr() == _sp2->GetPtr(); }
+template <class T1, class T2, typename Allocator> EOS_INLINE bool operator==(eosSmartPointer<T1, typename Allocator> const & _sp1, T2* _p2) { return _sp1->GetPtr() == _p2; }
+template <class T1, class T2, typename Allocator> EOS_INLINE bool operator==(T1* _p1, eosSmartPointer<T2, typename Allocator> const & _sp2) { return _p1 == _sp2->GetPtr(); }
 
-template <class T1, class T2> EOS_INLINE bool operator!=(SmartPointer<T1> const & _sp1, SmartPointer<T2> const & _sp2) { return _sp1() != _sp2(); }
-template <class T1, class T2> EOS_INLINE bool operator!=(SmartPointer<T1> const & _sp1, T2* _p2) { return _sp1.GetPtr() != _p2; }
-template <class T1, class T2> EOS_INLINE bool operator!=(T1* _p1, SmartPointer<T2> const & _sp2) { return _p1 != _sp2.GetPtr(); }
+template <class T1, class T2, typename Allocator> EOS_INLINE bool operator!=(eosSmartPointer<T1, typename Allocator> const & _sp1, eosSmartPointer<T2, typename Allocator> const & _sp2) { return _sp1() != _sp2(); }
+template <class T1, class T2, typename Allocator> EOS_INLINE bool operator!=(eosSmartPointer<T1, typename Allocator> const & _sp1, T2* _p2) { return _sp1->GetPtr() != _p2; }
+template <class T1, class T2, typename Allocator> EOS_INLINE bool operator!=(T1* _p1, eosSmartPointer<T2, typename Allocator> const & _sp2) { return _p1 != _sp2->GetPtr(); }
 
-template <class T>EOS_INLINE bool operator<(SmartPointer<T> const & _sp1, SmartPointer<T> const & _sp2) { return _sp1.GetPtr() < _sp2.GetPtr(); }
-template <class T>EOS_INLINE bool operator>(SmartPointer<T> const & _sp1, SmartPointer<T> const & _sp2) { return _sp1.GetPtr() > _sp2.GetPtr(); }
+template <class T, typename Allocator>EOS_INLINE bool operator<(eosSmartPointer<T, typename Allocator> const & _sp1, eosSmartPointer<T, typename Allocator> const & _sp2) { return _sp1->GetPtr() < _sp2->GetPtr(); }
+template <class T, typename Allocator>EOS_INLINE bool operator>(eosSmartPointer<T, typename Allocator> const & _sp1, eosSmartPointer<T, typename Allocator> const & _sp2) { return _sp1->GetPtr() > _sp2->GetPtr(); }
 
 
 EOS_NAMESPACE_END

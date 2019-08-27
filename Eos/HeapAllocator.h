@@ -1,271 +1,121 @@
 #pragma once
 
+
 #include "CoreDefs.h"
-#include "MemoryDefines.h"
 
-#if defined(_DEBUG) && defined(EOS_MEMORYLOAD)
-#include "Log.h"
-#endif
+#include "VirtualMemory.h"
+#include "MemoryUtils.h"
+#include "MemoryBuddyAllocator.h"
 
-#ifdef EOS_x64
-#define EOS_HEAP_HEADER_BIT_HAS_BEEN_ALLOCATED     63
-#define EOS_HEAP_HEADER_BIT_STILL_IN_USE           62
-#define EOS_HEAP_HEADER_MASK_SIZE_READ             0x3FFFFFFFFFFFFFFF
-#define EOS_HEAP_HEADER_MASK_SIZE_WRITE            0xC000000000000000
-#else
-#define EOS_HEAP_HEADER_BIT_HAS_BEEN_ALLOCATED     31
-#define EOS_HEAP_HEADER_BIT_STILL_IN_USE           30
-#define EOS_HEAP_HEADER_MASK_SIZE_READ             0x000000003FFFFFFF
-#define EOS_HEAP_HEADER_MASK_SIZE_WRITE            0x00000000C0000000
-#endif
-
-#define EOS_HEAP_CONSTANT_HEADER_SIZE              EOS_MEMORY_ALIGNMENT_SIZE
 
 EOS_NAMESPACE_BEGIN
 
-EOS_MEMORY_ALIGNMENT(EOS_MEMORY_ALIGNMENT_SIZE) class HeapAllocator
+
+template<eosSize MaxAlignment, eosU32 Level>
+class eosHeapAllocator
 {
 public:
-    EOS_INLINE HeapAllocator()
-    {
-        Init(EOS_HEAP_MEMORY);
-    }
+	eosHeapAllocator(eosSize _size, eosSize _offset) : 
+		m_owner(EOwnerType_Malloc), 
+		m_virtualStart(malloc(_size)),
+		m_virtualEnd((void*)((eosUPtr)m_virtualStart + _size)),
+		m_physicalEnd(m_virtualEnd),
+		m_freeList(HeapFreelist(m_virtualStart, m_virtualEnd, _offset/* + kAllocationHeaderSize*/))
+	{
+	}
 
-    EOS_INLINE ~HeapAllocator()
-    {
-        Shutdown();
-    }
+// 	eosHeapAllocator(eosSize _startSize, eosSize _maxSize, eosSize _offset) : m_owner(EOwnerType_VirtualAlloc)
+// 	{
+// 	}
 
-    // 1th bit of the header mean "has been allocated at least one time?"
-    // 2nd bit of the header mean "it is currently allocated?"
-    // rest of the header is the size
-    EOS_INLINE void* Alloc(eosSize _uiSize, eosSize _uiAlignment)
-    {
-        eosAssertReturnValue(m_uipHeap, "Heap allocator is not allocated", nullptr);
-        eosAssertReturnValue(_uiSize > 0, "Size must be passed greater then 0", nullptr);
-        eosAssertReturnValue(_uiAlignment > 0, "Alignment must be passed greater then 0", nullptr);
-        eosAssertReturnValue(_uiAlignment <= EOS_MEMORY_ALIGNMENT_SIZE, "Alignment must be lesser or equal to the overall memory alignment", nullptr);
-        eosAssertReturnValue(IsPowerOf2(_uiAlignment), "Alignment must be power of 2", nullptr);
+	eosHeapAllocator(void* _start, void* _end, eosSize _offset) : 
+		m_owner(EOwnerType_None),
+		m_virtualStart(_start),
+		m_virtualEnd(_end),
+		m_physicalEnd(_end),
+		m_freeList(HeapFreelist(m_virtualStart, m_virtualEnd, _offset/* + kAllocationHeaderSize*/))
+	{
+	}
 
-        SharedMutexUniqueLock lock(m_memoryMutex);
+	~eosHeapAllocator()
+	{
+		switch (m_owner)
+		{
+		case EOwnerType_Malloc:
+			free(m_virtualStart);
+			break;
+		case EOwnerType_None:
+		default:
+			break;
+		}
+	}
 
-        const eosSize uiMask = _uiAlignment - 1;
-        const eosSize uiSize = (_uiSize + uiMask) & ~uiMask;
+	EOS_INLINE void* Allocate(eosSize _size, eosSize _alignment, eosSize _offset)
+	{
+		eosAssertReturnValue(_size > 0, nullptr, "Size must be greater then 0");
+		eosAssertReturnValue(_alignment > 0, nullptr, "Alignment must be greater then 0");
+		eosAssertReturnValue(eosIsPowerOf2(_alignment), nullptr, "Alignment must be power of 2");
 
-        eosU8* uipCurrentHeap = m_uipHeap;
+		eosAssertReturnValue(_alignment <= MaxAlignment, nullptr, "Alignment must be lesser or equal the Max Alignment, Alignment = %zd, Max Alignment = %zd", _alignment, MaxAlignment);
 
-        Header* pHeader = reinterpret_cast<Header*>(uipCurrentHeap);
+		void* ptr = m_freeList.Alloc(_size, _alignment, _offset);
 
-        eosU8 uiHasBeenAllocated = EOS_BIT_CHECK(*pHeader, EOS_HEAP_HEADER_BIT_HAS_BEEN_ALLOCATED) > 0;
-        eosU8 uiStillInUse = EOS_BIT_CHECK(*pHeader, EOS_HEAP_HEADER_BIT_STILL_IN_USE) > 0;
-        eosSize uiCurrentSize = EOS_BIT_GET(*pHeader, EOS_HEAP_HEADER_MASK_SIZE_READ);
+		eosAssertReturnValue(ptr, nullptr, "Heap Allocator out of Memory");
 
-        eosU8 uiOldPtrFound = 0;
+		return ptr;
+	}
 
-        while (uiHasBeenAllocated && !uiOldPtrFound)
-        {
-            // if not in use and the new size is less than last I can place new one pointer here (size must still the same)
-            if (!uiStillInUse && uiCurrentSize >= uiSize)
-            {
-                // set it is allocated again:
-                EOS_BIT_SET(*pHeader, EOS_HEAP_HEADER_BIT_STILL_IN_USE);
-                uiOldPtrFound = 1;
-                break;  // early exit
-            }
-            else
-            {
-                // increase the pointer location, get value and continue
-                uipCurrentHeap += EOS_HEAP_CONSTANT_HEADER_SIZE + uiCurrentSize;
+	EOS_INLINE void Free(void* _ptr, eosSize /*_size*/)
+	{
+		m_freeList.Free(_ptr);
+	}
 
-                pHeader = reinterpret_cast<Header*>(uipCurrentHeap);
+	EOS_INLINE void Reset()
+	{
+		m_freeList = HeapFreelist(m_virtualStart, m_virtualEnd, _offset);
+	}
 
-                uiHasBeenAllocated = EOS_BIT_CHECK(*pHeader, EOS_HEAP_HEADER_BIT_HAS_BEEN_ALLOCATED) > 0;
-                uiStillInUse = EOS_BIT_CHECK(*pHeader, EOS_HEAP_HEADER_BIT_STILL_IN_USE) > 0;
-                uiCurrentSize = EOS_BIT_GET(*pHeader, EOS_HEAP_HEADER_MASK_SIZE_READ);
-            }
-        }
+	// Is a fake Purge (expensiveness having real purge)
+	EOS_INLINE void Purge()
+	{
+		Reset();
+	}
 
-        eosAssertReturnValue(uipCurrentHeap >= m_uipHeap && uipCurrentHeap <= m_uipHeap + m_uiSize * sizeof(eosU8), "Pointer is out of bound of the heap", nullptr);
+	EOS_INLINE eosSize GetTotalUsedSize()  const
+	{
+		return GetPhysicalSize();
+	}
 
-        if (!uiOldPtrFound)
-        {
-            uiCurrentSize = uiSize;
+	EOS_INLINE eosSize GetPhysicalSize() const
+	{
+		return (eosUPtr)m_physicalEnd - (eosUPtr)m_virtualStart;
+	}
 
-            EOS_BIT_SET(*pHeader, EOS_HEAP_HEADER_BIT_HAS_BEEN_ALLOCATED);
-            EOS_BIT_SET(*pHeader, EOS_HEAP_HEADER_BIT_STILL_IN_USE);
-            EOS_BIT_SET_VALUE(*pHeader, EOS_HEAP_HEADER_MASK_SIZE_WRITE, uiCurrentSize);
-        }
-
-#if defined(_DEBUG) && defined(EOS_MEMORYLOAD)
-        m_log.WriteAlloc(_uiSize, _uiAlignment, uiCurrentSize, (uipCurrentHeap + EOS_HEAP_CONSTANT_HEADER_SIZE));
-#endif
-
-        return uipCurrentHeap + EOS_HEAP_CONSTANT_HEADER_SIZE;
-    }
-
-    EOS_INLINE void Free(void *_uipBuffer)
-    {
-        eosAssertDialog(_uipBuffer >= m_uipHeap && _uipBuffer <= m_uipHeap + m_uiSize);
-        eosAssertReturnVoid(_uipBuffer >= m_uipHeap && _uipBuffer <= m_uipHeap + m_uiSize, "Pointer is not allocated in the heap");
-
-        SharedMutexUniqueLock lock(m_memoryMutex);
-
-        eosU8* uipBuffer = reinterpret_cast<eosU8*>(_uipBuffer);
-
-        Header* pHeader = reinterpret_cast<Header*>(uipBuffer - EOS_HEAP_CONSTANT_HEADER_SIZE);
-
-        eosU8 uiHasBeenAllocated = EOS_BIT_CHECK(*pHeader, EOS_HEAP_HEADER_BIT_HAS_BEEN_ALLOCATED) > 0;
-        eosU8 uiStillInUse = EOS_BIT_CHECK(*pHeader, EOS_HEAP_HEADER_BIT_STILL_IN_USE) > 0;
-        eosSize uiCurrentSize = EOS_BIT_GET(*pHeader, EOS_HEAP_HEADER_MASK_SIZE_READ);
-
-        if (uiHasBeenAllocated && uiStillInUse)
-        {
-            EOS_BIT_CLEAR(*pHeader, EOS_HEAP_HEADER_BIT_STILL_IN_USE);
-
-#if defined(_DEBUG) && defined(EOS_MEMORYLOAD)
-            m_log.WriteFree(uiCurrentSize, _uipBuffer);
-#endif
-        }
-
-#ifdef EOS_HEAP_MEMORY_USE_BUDDY
-        eosSize uiInitialBlocksSize = uiCurrentSize;
-
-        Header* pInitialHeader = pHeader;
-
-        eosSize uiTotalEmptyBlocksSize = 0;
-
-        eosU8 uiExitFlag = 0;
-
-        // this initially point after the header, but because in the while I have to add, I'm removing now
-        uipBuffer -= EOS_HEAP_CONSTANT_HEADER_SIZE;
-
-        // while was allocated but is not in use anymore and is a next block of memory of course
-        while (!uiExitFlag)
-        {
-            uipBuffer += EOS_HEAP_CONSTANT_HEADER_SIZE + uiCurrentSize;
-
-            pHeader = reinterpret_cast<Header*>(uipBuffer);
-
-            uiHasBeenAllocated = EOS_BIT_CHECK(*pHeader, EOS_HEAP_HEADER_BIT_HAS_BEEN_ALLOCATED) > 0;
-            uiStillInUse = EOS_BIT_CHECK(*pHeader, EOS_HEAP_HEADER_BIT_STILL_IN_USE) > 0;
-            uiCurrentSize = EOS_BIT_GET(*pHeader, EOS_HEAP_HEADER_MASK_SIZE_READ);
-
-            if (uiHasBeenAllocated && !uiStillInUse)
-            {
-                uiTotalEmptyBlocksSize += EOS_HEAP_CONSTANT_HEADER_SIZE + uiCurrentSize;
-                EOS_BIT_CLEAR(*pHeader, EOS_HEAP_HEADER_BIT_HAS_BEEN_ALLOCATED);
-                EOS_BIT_CLEAR(*pHeader, EOS_HEAP_HEADER_BIT_STILL_IN_USE);
-                EOS_BIT_SET_VALUE(*pHeader, EOS_HEAP_HEADER_MASK_SIZE_WRITE, 0);
-            }
-            else
-            {
-                uiExitFlag = 1;
-            }
-        }
-
-        EOS_BIT_SET_VALUE(*pInitialHeader, EOS_HEAP_HEADER_MASK_SIZE_WRITE, uiInitialBlocksSize + uiTotalEmptyBlocksSize);
-#endif // EOS_HEAP_MEMORY_USE_BUDDY
-    }
-
-    EOS_INLINE void* Reallocate(void *_uipBuffer, eosSize _uiSize, eosSize _uiAlignment)
-    {
-        eosAssertReturnValue(_uiSize > 0, "Size must be passed greater then 0", nullptr);
-        eosAssertReturnValue(_uiAlignment > 0, "Alignment must be passed greater then 0", nullptr);
-        eosAssertReturnValue(_uiAlignment <= EOS_MEMORY_ALIGNMENT_SIZE, "Alignment must be lesser or equal to the overall memory alignment", nullptr);
-        eosAssertReturnValue(IsPowerOf2(_uiAlignment), "Alignment must be power of 2", nullptr);
-
-        void* ptr = nullptr;
-
-#if defined(_DEBUG) && defined(EOS_MEMORYLOAD)
-        {
-            m_log.WriteBeginRealloc();
-#endif
-
-            ptr = Alloc(_uiSize, _uiAlignment);
-
-            {
-                SharedMutexUniqueLock lock(m_memoryMutex);
-
-                memcpy(ptr, _uipBuffer, _uiSize);
-            }
-
-            Free(_uipBuffer);
-
-#if defined(_DEBUG) && defined(EOS_MEMORYLOAD)
-            m_log.WriteEndRealloc();
-        }
-#endif
-
-        return ptr;
-    }
-
-    EOS_INLINE eosBool IsPointerOwned(void *_uipBuffer)
-    {
-        return (_uipBuffer >= m_uipHeap && _uipBuffer <= m_uipHeap + m_uiSize);
-    }
+	EOS_INLINE eosSize GetVirtualSize() const
+	{
+		return (eosUPtr)m_virtualEnd - (eosUPtr)m_virtualStart;
+	}
 
 private:
-    EOS_INLINE eosBool IsPowerOf2(eosSize _x)
-    {
-        return _x && !(_x & (_x - 1));
-    }
+	enum EOwnerType
+	{
+		EOwnerType_None = 0,
+		EOwnerType_Malloc
+	};
 
-    EOS_INLINE void Init(eosSize _uiSize)
-    {
-        eosSize uiMask = EOS_MEMORY_ALIGNMENT_SIZE - 1;
-        m_uiSize = (_uiSize + uiMask) & ~uiMask;
+	using HeapFreelist = eosMemoryBuddyAllocator<MaxAlignment, Level>;
 
-#ifdef EOS_x64
-        m_uipHeap = (eosU8*)calloc(m_uiSize, sizeof(eosU8));
-#else
-        m_uipHeap = (eosU8*)_aligned_malloc(m_uiSize * sizeof(eosU8), EOS_MEMORY_ALIGNMENT_SIZE);
-        memset(m_uipHeap, 0, m_uiSize * sizeof(eosU8));
-#endif // EOS_x64
+	void* m_virtualStart;
+	void* m_virtualEnd;
+	void* m_physicalEnd;
 
-        eosAssert(m_uipHeap, "Memory is not allocated!");
+	HeapFreelist m_freeList;
 
-#if defined(_DEBUG) && defined(EOS_MEMORYLOAD)
-        m_log.Init("heap.log", m_uiSize);
-#endif
-    }
+	EOwnerType m_owner;
 
-    EOS_INLINE void Shutdown()
-    {
-#if defined(_DEBUG) && defined(EOS_MEMORYLOAD)
-        m_log.Shutdown();
-#endif
-
-#ifdef EOS_x64
-        free(m_uipHeap);
-#else
-        _aligned_free(m_uipHeap);
-#endif // EOS_x64
-
-        m_uipHeap = nullptr;
-        m_uiSize = 0;
-    }
-
-
-private:
-#ifdef EOS_x64
-    typedef eosU64 Header;
-#else
-    typedef eosU32 Header;
-#endif
-
-    eosU8* m_uipHeap;
-    eosSize m_uiSize;
-
-    typedef std::shared_mutex               SharedMutex;
-    typedef std::unique_lock<SharedMutex>   SharedMutexUniqueLock;
-
-    SharedMutex m_memoryMutex;
-
-#if defined(_DEBUG) && defined(EOS_MEMORYLOAD)
-    Log m_log;
-#endif
+	eosSize m_growSize;
 };
 
-extern "C" EOS_DLL HeapAllocator g_heapAllocator;
+
 
 EOS_NAMESPACE_END
