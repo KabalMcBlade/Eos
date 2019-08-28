@@ -361,7 +361,7 @@ int main()
 	}
 	EOS_PROFILE_END;
 
-    /*
+
 	/////////////////////////////////////////////////////////////////////////////////////////////////////////
 	HeapAllocator heapAllocatorFixedArray(heapAreaMemory, "Fixed_Array_HeapAllocator");
 
@@ -382,7 +382,7 @@ int main()
 		eosDeleteArray(arr, &heapAllocatorArray);
 	}
 	EOS_PROFILE_END;
-    */
+    
 
 	/////////////////////////////////////////////////////////////////////////////////////////////////////////
 	LinearAllocator linearAllocatorFixedArray(linearAreaMemory, "Fixed_Array_LinearAllocator");
