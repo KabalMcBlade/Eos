@@ -48,7 +48,7 @@ public:
         eosAssertReturnVoid(m_memoryTracker.GetNumAllocations() == 0, "Allocator %s has memory leaks of %zu allocateoss", m_name, m_memoryTracker.GetNumAllocations());
     }
 
-    EOS_INLINE void* Allocate(eosSize _size, eosSize _alignment, const eosSourceInfo& _sourceInfo)
+    EOS_INLINE void* Allocate(eosSize _size, eosSize _alignment, eosSize _count, const eosSourceInfo& _sourceInfo)
     {
         m_threadGuard.Enter();
 
@@ -56,7 +56,7 @@ public:
         const eosSize originalSize = _size;
         const eosSize newSize = _size + headerSize + eosBoundsCheckingPolicy::kSizeBack;
 
-        eosU8* plainMemory = static_cast<eosU8*>(m_allocator.Allocate(newSize, _alignment, headerSize));
+        eosU8* plainMemory = static_cast<eosU8*>(m_allocator.Allocate(newSize, _alignment, _count, headerSize));
 
         m_allocator.StoreAllocationSize(plainMemory, newSize);						// - is the space reserved by eosAllocationPolicy::kHeaderSize
 

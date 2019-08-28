@@ -38,9 +38,9 @@ public:
         return m_header.GetAllocationSize(_ptr);
     }
 
-    EOS_INLINE void* Allocate(eosSize _size, eosSize _alignment, eosSize _offset)
+    EOS_INLINE void* Allocate(eosSize _size, eosSize _alignment, eosSize _count, eosSize _offset)
     {
-        return m_allocator.Allocate(_size, _alignment, _offset);
+        return m_allocator.Allocate(_size, _alignment, _count, _offset);
     }
 
     EOS_INLINE void Free(void* _ptr, eosSize _size)

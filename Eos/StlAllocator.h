@@ -132,9 +132,9 @@ public:
     {
         eosAssertDialog(m_allocator);
 
-        const size_type size = cnt * sizeof(value_type);
+        const size_type size = /*cnt **/ sizeof(value_type);
 
-        void* pAllocation = m_allocator->Allocate(size, __alignof(value_type), EOS_MEMORY_SOURCE_ALLOCATION_INFO);
+        void* pAllocation = m_allocator->Allocate(size, __alignof(value_type), cnt, EOS_MEMORY_SOURCE_ALLOCATION_INFO);
 
         eosAssertReturnValue(pAllocation != nullptr, nullptr, "StlAllocator failed to allocate memory.");
 

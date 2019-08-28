@@ -50,13 +50,15 @@ public:
 		}
 	}
 
-	EOS_INLINE void* Allocate(eosSize _size, eosSize _alignment, eosSize _offset)
+	EOS_INLINE void* Allocate(eosSize _size, eosSize _alignment, eosSize _count, eosSize _offset)
 	{
 		eosAssertReturnValue(_size > 0, nullptr, "Size must be greater then 0");
 		eosAssertReturnValue(_alignment > 0, nullptr, "Alignment must be greater then 0");
 		eosAssertReturnValue(eosIsPowerOf2(_alignment), nullptr, "Alignment must be power of 2");
 
 		eosAssertReturnValue(_alignment <= MaxAlignment, nullptr, "Alignment must be lesser or equal the Max Alignment, Alignment = %zd, Max Alignment = %zd", _alignment, MaxAlignment);
+
+        // TODO _count
 
 		void* ptr = m_freeList.Alloc(_size, _alignment, _offset);
 

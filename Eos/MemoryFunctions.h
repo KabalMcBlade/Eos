@@ -47,7 +47,7 @@ EOS_INLINE T* AllocArray(Allocator* _allocator, eosSize _cnt, const char* _file,
 
     const eosSize numHeaderElements = sizeof(eosSize) / sizeof(T) + ((eosBool)(sizeof(eosSize) % sizeof(T)) || 0);
 
-    as_void = _allocator->Allocate(sizeof(T) * (_cnt + numHeaderElements), alignof(T), eosSourceInfo(_file, _line));
+    as_void = _allocator->Allocate(sizeof(T), alignof(T), (_cnt + numHeaderElements), eosSourceInfo(_file, _line));
 
     // store number of elements at the back of the first element of the array.
     as_T += numHeaderElements;
@@ -106,7 +106,7 @@ EOS_NAMESPACE_END
 // Put outside of scope using namespace scope when required in order to allow to use define without namespace scope
 //////////////////////////////////////////////////////////////////////////
 
-#define eosNewAligned(Type, Allocator, Alignment, ...)  new ((Allocator)->Allocate(sizeof(Type), Alignment, EOS_MEMORY_SOURCE_ALLOCATION_INFO)) Type(__VA_ARGS__)
+#define eosNewAligned(Type, Allocator, Alignment, ...)  new ((Allocator)->Allocate(sizeof(Type), Alignment, 1, EOS_MEMORY_SOURCE_ALLOCATION_INFO)) Type(__VA_ARGS__)
 #define eosNew(Type, Allocator, ...)                    eosNewAligned(Type, (Allocator), alignof(Type), __VA_ARGS__)
 #define eosDelete(Object, Allocator)                    eos::Free((Object), (Allocator))
 

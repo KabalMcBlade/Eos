@@ -31,17 +31,18 @@ public:
 	{
 	}
 
-	EOS_INLINE void* Allocate(eosSize _size, eosSize _alignment, eosSize _offset)
+	EOS_INLINE void* Allocate(eosSize _size, eosSize _alignment, eosSize _count, eosSize _offset)
 	{
 		eosAssertReturnValue(_size > 0, nullptr, "Size must be greater then 0");
 		eosAssertReturnValue(_alignment > 0, nullptr, "Alignment must be greater then 0");
 		eosAssertReturnValue(eosIsPowerOf2(_alignment), nullptr, "Alignment must be power of 2");
 		eosAssertReturnValue(m_currentSize < m_maxSize, nullptr, "Memory allocated out of bound");
 
- 		_size += kAllocationHeaderSize + _alignment;	// need to provide sufficient space to align the pointer in any alignment with offset
 
-		void* addr = malloc(_size);
-
+        const eosSize alignedSize = eosBitUtils::RoundUpToMultiple(_size + _alignment, _alignment);
+        const eosSize newSize = (alignedSize * _count) + kAllocationHeaderSize; // need to provide sufficient space to align the pointer in any alignment with offset
+        void* addr = malloc(newSize);
+        
 		eosUPtr newPtr = eosPointerUtils::AlignTop(reinterpret_cast<eosUPtr>(addr) + _offset, _alignment) - _offset;
 		const eosSize offsetSize = newPtr - reinterpret_cast<eosUPtr>(addr);
 

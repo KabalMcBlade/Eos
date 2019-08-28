@@ -15,7 +15,7 @@ Eos is providing different allocators to use in different context in your game:
    - The pros to use this allocator instead of the current malloc is:
      - In *debug* you have the same helpers for tagging, checking and tracking the memory
 	 - You can put a limit as max memory
-   - Can't be used with STL wrapper
+   - Can't be used with STL wrapper (FOR NOW)
      - The system releays on single allocation per time like normal alloc, but the wrapper expect pre-allocated
 2. Heap allocator
    - Is called heap allocator in the way that should be used as standard heap allocation
@@ -23,7 +23,7 @@ Eos is providing different allocators to use in different context in your game:
      - The size need to be a power of 2 with a max of 1 << 31 = ~2GB
    - Is very fast
      - But it suffers of fragmentation
-   - Can't be used with eosNewArray or eosNewDynamicArray or STL wrapper
+   - Can't be used with eosNewArray or eosNewDynamicArray or STL wrapper (FOR NOW)
      - These 2 function allocate a huge buffer which is the total size of the count, but internally the the Buddy allocator will try a huge size which is over the order passed usually
 3. Linear allocator
    - Is the fastest allocator in Eos
@@ -31,7 +31,7 @@ Eos is providing different allocators to use in different context in your game:
    - The memory can't be free
 4. Pool allocator
    - Can grow or not, depend which one you are using
-   - Can't be used with eosNewArray or eosNewDynamicArray or STL wrapper
+   - Can't be used with eosNewArray or eosNewDynamicArray or STL wrapper (FOR NOW)
      - These 2 function allocate a huge buffer which is the total size of the count, but internally the Pool allocator can allocate only the max size of single element per object in pool.
 5. Stack allocator
 6. Stl allocator
