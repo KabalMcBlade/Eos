@@ -41,7 +41,7 @@ EOS_INLINE T* AllocArray(Allocator* _allocator, eosSize _cnt, const char* _file,
     union
     {
         void* as_void;
-        ionSize* as_size;
+        eosSize* as_size;
         T* as_T;
     };
 

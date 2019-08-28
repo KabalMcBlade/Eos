@@ -117,5 +117,8 @@ private:
 };
 
 
+template<eosSize MaxAlignment, eosU32 Level>
+using eosDefaultHeapAllocationPolicy = eosAllocationPolicy<eosHeapAllocator<MaxAlignment, Level>, eosAllocationHeaderU32>;
+
 
 EOS_NAMESPACE_END

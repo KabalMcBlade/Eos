@@ -78,7 +78,7 @@ public:
             return false;
         }
 
-        eosVirtualMemory::CommitPhysicalMemory(reinterpret_cast<void*>(_stack->m_physicalEnd - neededPhysicalSize), neededPhysicalSize, _hugeMemoryPage);
+        eosVirtualMemory::CommitPhysicalMemory(reinterpret_cast<void*>(_stack->m_physicalEnd - neededPhysicalSize), neededPhysicalSize/*, _hugeMemoryPage*/);
         _stack->m_physicalEnd -= neededPhysicalSize;
 
         return true;

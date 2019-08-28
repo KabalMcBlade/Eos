@@ -29,7 +29,7 @@ public:
 		eosS32 i, order;
 		void* block, *buddy;
 
-		_size += kAllocationHeaderSize;	// in this 32 bit more (int/Header) I'm going to store the local information I need
+		_size += kAllocationHeaderSize + _alignment;	// in this 32 bit more (int/Header) I'm going to store the local information I need
 
 		// minimal order
 		i = 0;
@@ -63,15 +63,16 @@ public:
 		{
 			buddy = GetBuddyOfOrder(block, i);
 
-			// workaround: the problem with this kind of allocator is that when we are at the beginning and we need to split that of, the 
-			// block of the buffer is shrunk, so the original pointer is very likely out of the current bound.
-			// Therefore, because we are creating new block, we can clear this new memory from any dirty values.
+#if defined(_DEBUG)
+			// The big bottleneck of this allocator using debug:
+			// Because we are creating new block splitting previous allocated blocks, and because we never really allocate or delete, 
+			// we need to clear this new memory from any dirty values from the previous allocations
 			eosMemset(buddy, 0, GetBlockSizeOfOrder(i));
+#endif
 
 			m_buddy.m_freelist[i] = buddy;
 		}
 
-		_alignment = _alignment > MinAlignment ? _alignment : MinAlignment;
 		const eosUPtr userPtr = eosPointerUtils::AlignTop(reinterpret_cast<eosUPtr>(block) + _offset, MinAlignment) - _offset;
 		const eosSize offset = userPtr - reinterpret_cast<eosUPtr>(block);
 
@@ -83,8 +84,10 @@ public:
 			eosUPtr as_uptr;
 		};
 		as_uptr = userPtr;
-		Header& flag = *(as_header - 1);
+		Header& flag = *(as_header);
 		flag = static_cast<eosU16>(offset) | (static_cast<eosU16>(order) << 16);
+
+		++as_header;
 
 		return as_void;
 	}
@@ -104,7 +107,9 @@ public:
 		};
 		as_void = _ptr;
 
-		const Header flag = *(as_header - 1);
+		--as_header;
+
+		const Header flag = *(as_header);
 		const eosU32 offset = (flag & 0x0000ffff);
 		i = (flag & 0xffff0000) >> 16;
 
@@ -175,7 +180,10 @@ private:
 		void* m_freelist[kMaxOrder + 2];
 		void* m_pool;
 
-		eosMemoryBuddy() : m_pool(nullptr) {}
+		eosMemoryBuddy() : m_pool(nullptr) 
+		{
+			eosMemset(m_freelist, 0, (kMaxOrder + 2) * sizeof(eosUPtr));
+		}
 	};
 
 	eosMemoryBuddy m_buddy;

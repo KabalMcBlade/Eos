@@ -40,12 +40,12 @@ public:
 
     EOS_INLINE void CheckFront(const void* ptr) const
     {
-        eosAssert(*static_cast<const eosU32*>(ptr) == EOS_BOUND_FRONT_PATTERN, "Memory bound front error");
+        eosAssertReturnVoid(*static_cast<const eosU32*>(ptr) == EOS_BOUND_FRONT_PATTERN, "Memory bound front error");
     }
 
     EOS_INLINE void CheckBack(const void* ptr) const
     {
-        eosAssert(*static_cast<const eosU32*>(ptr) == EOS_BOUND_BACK_PATTERN, "Memory bound back error");
+		eosAssertReturnVoid(*static_cast<const eosU32*>(ptr) == EOS_BOUND_BACK_PATTERN, "Memory bound back error");
     }
 };
 

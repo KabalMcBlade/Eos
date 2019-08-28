@@ -59,7 +59,6 @@ public:
         return ptr;
     }
 
-    // is a fake Free
     EOS_INLINE void Free(void* /*_ptr*/, eosSize /*_size*/)
     {
         //eosAssertReturnVoid(false, "Linear Allocator cannot free memory");
@@ -98,10 +97,8 @@ private:
     eosBool m_owner;
 };
 
-#if defined(_DEBUG)
+
 using eosDefaultLinearAllocationPolicy = eosAllocationPolicy<eosLinearAllocator, eosAllocationHeaderU32>;
-#else
-using eosDefaultLinearAllocateionPolicy = eosAllocationPolicy<eosLinearAllocator, eosNoAllocationHeader>;
-#endif
+
 
 EOS_NAMESPACE_END

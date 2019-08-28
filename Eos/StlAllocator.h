@@ -134,7 +134,6 @@ public:
 
         const size_type size = cnt * sizeof(value_type);
 
-        //new ((Allocator)->Allocate(sizeof(Type), Alignment, EOS_MEMORY_SOURCE_ALLOCATION_INFO)) Type(__VA_ARGS__)
         void* pAllocation = m_allocator->Allocate(size, __alignof(value_type), EOS_MEMORY_SOURCE_ALLOCATION_INFO);
 
         eosAssertReturnValue(pAllocation != nullptr, nullptr, "StlAllocator failed to allocate memory.");

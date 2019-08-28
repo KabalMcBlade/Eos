@@ -34,7 +34,7 @@ public:
 
         m_growSize = eosVirtualMemory::GetPageSize();
 
-        void* ptr = eosVirtualMemory::ReserveAddressSpace(_maxSize, HugeMemoryPage);
+        void* ptr = eosVirtualMemory::ReserveAddressSpace(_maxSize/*, HugeMemoryPage*/);
         eosAssertDialog(ptr);
 
         m_stackAllocatorLayout.Init(this, reinterpret_cast<eosUPtr>(ptr), _startSize, _maxSize, CanGrow);
@@ -164,13 +164,18 @@ private:
 };
 
 
-using eosStackAllocatorBottomNonGrowable = eosStackAllocator<eosStackFromBottomAllocatorPolicy, false, false>;
+using eosStackAllocatorBottomNoGrowable = eosStackAllocator<eosStackFromBottomAllocatorPolicy, false, false>;
 using eosStackAllocatorBottomGrowable = eosStackAllocator<eosStackFromBottomAllocatorPolicy, false, true>;
 
-using eosStackAllocatorTopNonGrowable = eosStackAllocator<eosStackFromTopAllocatorPolicy, false, false>;
+using eosStackAllocatorTopNoGrowable = eosStackAllocator<eosStackFromTopAllocatorPolicy, false, false>;
 using eosStackAllocatorTopGrowable = eosStackAllocator<eosStackFromTopAllocatorPolicy, false, true>;
 
-using eosStandardStackAllocator = eosStackAllocatorTopNonGrowable;
+//
 
+using eosDefaultStackBottomNoGrowableAllocationPolicy = eosAllocationPolicy<eosStackAllocatorBottomNoGrowable, eosAllocationHeaderU32>;
+using eosDefaultStackBottomGrowableAllocationPolicy = eosAllocationPolicy<eosStackAllocatorBottomGrowable, eosAllocationHeaderU32>;
+
+using eosDefaultStackTopNoGrowableAllocationPolicy = eosAllocationPolicy<eosStackAllocatorTopNoGrowable, eosAllocationHeaderU32>;
+using eosDefaultStackTopGrowableAllocationPolicy = eosAllocationPolicy<eosStackAllocatorTopGrowable, eosAllocationHeaderU32>;
 
 EOS_NAMESPACE_END

@@ -5,9 +5,11 @@
 
 #include "MemoryUtils.h"
 
+
 EOS_NAMESPACE_BEGIN
 
 #define EOS_UNKNOW_ALLOCATOR "Unkown"
+
 
 template <class eosAllocationPolicy, class eosThreadPolicy, class eosBoundsCheckingPolicy, class eosMemoryTrackingPolicy, class eosMemoryTaggingPolicy>
 class eosAllocator
@@ -56,12 +58,13 @@ public:
 
         eosU8* plainMemory = static_cast<eosU8*>(m_allocator.Allocate(newSize, _alignment, headerSize));
 
-        m_allocator.StoreAllocationSize(plainMemory, newSize);
+        m_allocator.StoreAllocationSize(plainMemory, newSize);						// - is the space reserved by eosAllocationPolicy::kHeaderSize
 
-        m_boundsChecker.GuardFront(plainMemory + eosAllocationPolicy::kHeaderSize);
-        m_memoryTagger.TagAllocation(plainMemory + headerSize, originalSize);
-        m_boundsChecker.GuardBack(plainMemory + headerSize + originalSize);
-        m_memoryTracker.OnAllocation(plainMemory, newSize, _alignment, _sourceInfo);
+        m_boundsChecker.GuardFront(plainMemory + eosAllocationPolicy::kHeaderSize);	// - start after the eosAllocationPolicy::kHeaderSize
+        m_memoryTagger.TagAllocation(plainMemory + headerSize, originalSize);		// - start after the eosAllocationPolicy::kHeaderSize AND eosBoundsCheckingPolicy::kSizeFront
+        m_boundsChecker.GuardBack(plainMemory + headerSize + originalSize);			// - start after the eosAllocationPolicy::kHeaderSize AND eosBoundsCheckingPolicy::kSizeFront AND the allocation size
+        
+		m_memoryTracker.OnAllocation(plainMemory, newSize, _alignment, _sourceInfo);
 
         m_threadGuard.Leave();
 
@@ -79,7 +82,7 @@ public:
 		m_boundsChecker.CheckFront(originalMemory + eosAllocationPolicy::kHeaderSize);
 		m_boundsChecker.CheckBack(originalMemory + allocationSize - eosBoundsCheckingPolicy::kSizeBack);
 		m_memoryTracker.OnDeallocation(originalMemory, allocationSize);
-		m_memoryTagger.TagDeallocation(originalMemory, allocationSize);
+		m_memoryTagger.TagDeallocation(originalMemory + headerSize, allocationSize - (headerSize + eosBoundsCheckingPolicy::kSizeBack));
 
         m_allocator.Free(originalMemory, allocationSize);
 

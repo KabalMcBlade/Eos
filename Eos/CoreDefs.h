@@ -86,7 +86,11 @@
 
 
 // default alignment
+#ifdef EOS_x64
 #define EOS_MEMORY_ALIGNMENT_SIZE   16
+#else
+#define EOS_MEMORY_ALIGNMENT_SIZE   8
+#endif
 
 // Memory alignment
 #define EOS_MEMORY_ALIGNMENT(x)    __declspec(align(x))
@@ -159,24 +163,23 @@ typedef std::uintptr_t  eosUPtr;
 //////////////////////////////////////////////////////////////////////////
 
 #ifdef _DEBUG
-#define eosAssert( condition, format, ... ) \
+#define eosAssertVoid( condition, format, ... ) \
     if( !(condition) ) { \
         fprintf (stderr, "%s(%u): " format "\n", __FILE__, __LINE__, __VA_ARGS__); \
+		return; \
+    }
+#define eosAssertValue( condition, return_value, format, ... ) \
+    if( !(condition) ) { \
+        fprintf (stderr, "%s(%u): " format "\n", __FILE__, __LINE__, __VA_ARGS__); \
+		return return_value; \
     }
 #define eosAssertDialog( condition ) assert(condition)
 #else
-#define eosAssert( condition, format, ... )
+#define eosAssertVoid( condition, format, ... )
+#define eosAssertValue( condition, return_value, format, ... )
 #define eosAssertDialog( condition )
 #endif // DEBUG
 
-#define eosAssertReturnVoid( condition, format, ... ) \
-    eosAssert( condition, format, __VA_ARGS__ )\
-    if( !(condition) ) { \
-        return;\
-    }
+#define eosAssertReturnVoid( condition, format, ... )					eosAssertVoid( condition, format, __VA_ARGS__ )
 
-#define eosAssertReturnValue( condition, return_value, format, ...  ) \
-    eosAssert( condition, format, __VA_ARGS__ )\
-    if( !(condition) ) { \
-        return return_value;\
-    }
+#define eosAssertReturnValue( condition, return_value, format, ...  )	eosAssertValue( condition, return_value, format, __VA_ARGS__ )

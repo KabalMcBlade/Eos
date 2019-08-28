@@ -12,7 +12,6 @@ EOS_NAMESPACE_BEGIN
 // This allocator is an actual malloc allocator, and using 2 on 3 of the constructor but altering the functionality:
 // eosMallocAllocator(eosSize _size, eosSize _offset)  -> using the _size as max size
 // eosMallocAllocator(eosSize _startSize, eosSize _maxSize, eosSize _offset) -> the _startSize does not matter
-template<eosSize MinAlignment>
 class eosMallocAllocator
 {
 public:
@@ -39,24 +38,42 @@ public:
 		eosAssertReturnValue(eosIsPowerOf2(_alignment), nullptr, "Alignment must be power of 2");
 		eosAssertReturnValue(m_currentSize < m_maxSize, nullptr, "Memory allocated out of bound");
 
-		_size += kAllocationHeaderSize;
+ 		_size += kAllocationHeaderSize + _alignment;	// need to provide sufficient space to align the pointer in any alignment with offset
 
-		_alignment = _alignment > MinAlignment ? _alignment : MinAlignment;
+		void* addr = malloc(_size);
 
-		void* addr = malloc(_size + _alignment + sizeof(eosUPtr));
+		eosUPtr newPtr = eosPointerUtils::AlignTop(reinterpret_cast<eosUPtr>(addr) + _offset, _alignment) - _offset;
+		const eosSize offsetSize = newPtr - reinterpret_cast<eosUPtr>(addr);
 
-		eosUPtr aligned_addr = eosPointerUtils::AlignTop(reinterpret_cast<eosUPtr>(addr) + _offset /*+ sizeof(eosUPtr)*/, _alignment) - (_offset /*+ sizeof(eosUPtr)*/);
+		union
+		{
+			void* as_void;
+			Header* as_header;
+			eosUPtr as_uptr;
+		};
+		as_uptr = newPtr;
 
-		// store the original address
-		*(eosUPtr*)(aligned_addr - sizeof(eosUPtr)) = (eosUPtr)addr;
+		*(as_header) = static_cast<Header>(offsetSize);
+		++as_header;
 
-		return (void*)aligned_addr;
+		return as_void;
 	}
 
-	EOS_INLINE void Free(void* _ptr, eosSize _size)
+	EOS_INLINE void Free(void* _ptr, eosSize /*_size*/)
 	{
-		eosUPtr orig_ptr = *(eosUPtr*)((eosUPtr)_ptr - sizeof(eosUPtr));
-		free((void*)orig_ptr);
+		union
+		{
+			void* as_void;
+			Header* as_header;
+			eosUPtr as_uptr;
+		};
+		as_void = _ptr;
+		
+		--as_header;
+		const Header headerSize = *(as_header);
+		as_uptr -= headerSize;
+
+		free(as_void);
 	}
 
 	EOS_INLINE void Reset()
@@ -94,6 +111,7 @@ private:
 	eosSize m_currentSize;
 };
 
+using eosDefaultMallocAllocationPolicy = eosAllocationPolicy<eosMallocAllocator, eosAllocationHeaderU32>;
 
 
 EOS_NAMESPACE_END

@@ -107,7 +107,16 @@ EOS_INLINE void eosMemcpy(void *_ptr, const void* _src, eosSize _len)
 		memcpy(_ptr, _src, _len);
 	}
 }
+#else
+EOS_INLINE void eosMemset(void *_ptr, int _val, eosSize _len)
+{
+	memset(_ptr, _val, _len);
+}
 
+EOS_INLINE void eosMemcpy(void *_ptr, const void* _src, eosSize _len)
+{
+	memcpy(_ptr, _src, _len);
+}
 #endif
 
 /////////////////////////////////////////////////////////////////////////////
@@ -125,7 +134,7 @@ struct eosPointerUtils
 
     constexpr static EOS_INLINE eosUPtr AlignBottom(eosUPtr _ptr, eosSize _alignment)
     {
-        eosAssert(_ptr > _alignment, "Address must greater than alignment");
+		eosAssertReturnValue(_ptr > _alignment, reinterpret_cast<eosUPtr>(nullptr), "Address must greater than alignment");
         return ((_ptr) & ~(_alignment - 1));
     }
 
@@ -145,7 +154,7 @@ struct eosBitUtils
 
     constexpr static EOS_INLINE eosSize RoundDownToMultiple(eosSize _value, eosSize _multiple)
     {
-        eosAssert(_value > _multiple, "Value must greater than multiple");
+		eosAssertReturnValue(_value > _multiple, 0, "Value must greater than multiple");
         return (_value & ~(_multiple)) ;
     }
 };

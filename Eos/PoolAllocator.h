@@ -14,7 +14,7 @@ template<eosSize MaxElementSize, eosSize MaxAlignment, eosBool CanGrow, eosSize 
 class eosPoolAllocator
 {
 public:
-    eosPoolAllocator(eosSize _size, eosSize _offset) : m_owner(EOwnerType_Malloc), m_maxElementSize(MaxElementSize + MaxAlignment + kAllocationHeaderSize), m_allocateosCounter(0)
+    eosPoolAllocator(eosSize _size, eosSize _offset) : m_owner(EOwnerType_Malloc), m_maxElementSize(kMaxElementSize + MaxAlignment + kAllocationHeaderSize), m_allocateosCounter(0)
     {
         eosAssertDialog(_size > 0);
         eosAssertDialog(!CanGrow);      // With this constructor the allocator CANNOT grow
@@ -29,7 +29,7 @@ public:
          m_wastedSpace = m_freeList.GetWastedSize();
     }
 
-    eosPoolAllocator(eosSize _startSize, eosSize _maxSize, eosSize _offset) : m_owner(EOwnerType_VirtualAlloc), m_maxElementSize(MaxElementSize + MaxAlignment + kAllocationHeaderSize), m_allocateosCounter(0)
+    eosPoolAllocator(eosSize _startSize, eosSize _maxSize, eosSize _offset) : m_owner(EOwnerType_VirtualAlloc), m_maxElementSize(kMaxElementSize + MaxAlignment + kAllocationHeaderSize), m_allocateosCounter(0)
     {
         eosAssertDialog(_startSize <= _maxSize);
         eosAssertDialog(CanGrow);      // With this constructor the allocator CAN grow
@@ -56,7 +56,7 @@ public:
         eosAssertDialog(m_growSize % eosVirtualMemory::GetPageSize() == 0 && m_growSize != 0);    // to block execute
     }
 
-    eosPoolAllocator(void* _start, void* _end, eosSize _offset) : m_owner(EOwnerType_None), m_maxElementSize(MaxElementSize + MaxAlignment + kAllocationHeaderSize), m_allocateosCounter(0)
+    eosPoolAllocator(void* _start, void* _end, eosSize _offset) : m_owner(EOwnerType_None), m_maxElementSize(kMaxElementSize + MaxAlignment + kAllocationHeaderSize), m_allocateosCounter(0)
     {
         eosAssertDialog(_start);
         eosAssertDialog(_end);
@@ -96,9 +96,8 @@ public:
         eosAssertReturnValue(eosIsPowerOf2(_alignment), nullptr, "Alignment must be power of 2");
 
         _size += kAllocationHeaderSize;
-        //_offset += kAllocationHeaderSize;
 
-        eosAssertReturnValue(_size <= m_maxElementSize, nullptr, "Size must be lesser or equal the Max Element Size, Size = %zd, Max Element Size = %zd", _size, m_maxElementSize);
+        eosAssertReturnValue(_size <= (m_maxElementSize + _offset), nullptr, "Size must be lesser or equal the Max Element Size, Size = %zd, Max Element Size = %zd", _size, m_maxElementSize);
         eosAssertReturnValue(_alignment <= MaxAlignment, nullptr, "Alignment must be lesser or equal the Max Alignment, Alignment = %zd, Max Alignment = %zd", _alignment, MaxAlignment);
 
         void* ptr = m_freeList.Get();
@@ -138,7 +137,7 @@ public:
         const eosSize offsetSize = newPtr - reinterpret_cast<eosUPtr>(ptr);
 
         eosAssertReturnValue(offsetSize >> (sizeof(Header) * 8) == 0, nullptr, "offsetSize must be less that sizeof(AllocationHeaderType). offsetSize = %zd, sizeof(Header) = %zd", offsetSize, sizeof(Header));
-        eosAssertReturnValue(newPtr + _size - kAllocationHeaderSize < reinterpret_cast<eosUPtr>(ptr) + m_maxElementSize, nullptr, "Memory allocated out of bound.");
+        eosAssertReturnValue(newPtr + _size - kAllocationHeaderSize < reinterpret_cast<eosUPtr>(ptr) + (m_maxElementSize + _offset), nullptr, "Memory allocated out of bound.");
 
         union
         {
@@ -146,9 +145,10 @@ public:
             Header* as_header;
             eosUPtr as_uptr;
         };
-
         as_uptr = newPtr;
-        *(as_header - 1) = static_cast<Header>(offsetSize);
+
+        *(as_header) = static_cast<Header>(offsetSize);
+		++as_header;
 
         ++m_allocateosCounter;
 
@@ -163,9 +163,11 @@ public:
             Header* as_header;
             eosUPtr as_uptr;
         };
-
         as_void = _ptr;
-        const eosU8 headerSize = *(as_header - 1);
+
+		--as_header;
+
+        const eosU8 headerSize = *(as_header);
         as_uptr -= headerSize;
 
         m_freeList.Release(as_void);
@@ -212,6 +214,10 @@ private:
     static constexpr eosSize kAllocationHeaderSize = sizeof(Header);
     static_assert(kAllocationHeaderSize >= 1, "Header has wrong size.");
 
+	static constexpr eosSize kMaxElementSize = eosBitUtils::RoundUpToMultiple(MaxElementSize, MaxAlignment) + kAllocationHeaderSize;
+
+	static_assert(eosIsPowerOf2(MaxAlignment), "MaxAlignment has be be of power of 2");
+
     void* m_virtualStart;
     void* m_virtualEnd;
     void* m_physicalEnd;
@@ -229,10 +235,18 @@ private:
 
 
 template<eosSize MaxElementSize, eosSize MaxAlignment>
-using eosPoolAllocatorNonGrowable = eosPoolAllocator<MaxElementSize, MaxAlignment, false, 0>;
+using eosPoolAllocatorNoGrowable = eosPoolAllocator<MaxElementSize, MaxAlignment, false, 0>;
 
 template<eosSize MaxElementSize, eosSize MaxAlignment, eosSize GrowSize>
 using eosPoolAllocatorGrowable = eosPoolAllocator<MaxElementSize, MaxAlignment, true, GrowSize>;
+
+//
+
+template<eosSize MaxElementSize, eosSize MaxAlignment>
+using eosDefaultPoolNoGrowableAllocationPolicy = eosAllocationPolicy<eosPoolAllocatorNoGrowable<MaxElementSize, MaxAlignment>, eosAllocationHeaderU32>;
+
+template<eosSize MaxElementSize, eosSize MaxAlignment, eosSize GrowSize>
+using eosDefaultPoolGrowableAllocationPolicy = eosAllocationPolicy<eosPoolAllocatorGrowable<MaxElementSize, MaxAlignment, GrowSize>, eosAllocationHeaderU32>;
 
 
 EOS_NAMESPACE_END

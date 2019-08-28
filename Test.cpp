@@ -5,59 +5,15 @@
 
 #include "Eos/Eos.h"
 
-
-#define MEMORY_1_MB                 1048576
-#define MEMORY_4_MB                 MEMORY_1_MB * 4
-#define MEMORY_8_MB                 MEMORY_4_MB * 2
-#define MEMORY_16_MB                MEMORY_8_MB * 2
-
-#define STL_MAX_HEAP_MEMORY         MEMORY_16_MB
-#define STL_MAX_STACK_MEMORY_SIZE   MEMORY_4_MB
-#define STL_MAX_LINEAR_MEMORY       MEMORY_8_MB
-
-
-#define MAX_STACK_MEMORY_BLOCK      1024
-#define ALL_HEAP_MEMORY             STL_MAX_HEAP_MEMORY + (MEMORY_16_MB)
-#define ALL_LINEAR_MEMORY           STL_MAX_LINEAR_MEMORY + (MEMORY_16_MB * 2)
-#define ALL_STACK_MEMORY            STL_MAX_STACK_MEMORY_SIZE
-
-
 EOS_USING_NAMESPACE
 
-EOS_OPTIMIZATEOS_OFF
-
-class Cat
+struct Cat
 {
-public:
-    int a;
-
-    Cat()
-    {
-        a = 0xABCD;
-    }
-
-    Cat(const Cat& other)
-    {
-        a = other.a;
-    }
-
-    Cat& operator=(const Cat& other)
-    {
-        a = other.a;
-        return *this;
-    }
-
-    Cat(int _a)
-    {
-        a = _a;
-    }
-
-    virtual ~Cat()
-    {
-        a = 0x0000;
-    }
+	static constexpr eosSize kSize = 1 << 8;	// ~256 bytes
+    eosU8 m_buffer[kSize];
 };
 
+/*
 class SmartCat : public eosSmartObject
 {
 public:
@@ -89,7 +45,6 @@ public:
         a = 0x0000;
     }
 };
-
 class SuperCat : public Cat
 {
 public:
@@ -113,301 +68,399 @@ public:
         memset(counter, 0, 10);
     }
 };
-
+*/
 
 int main()
 {
-    std::cout << "TESTING VARIOUS ALLOCATORS" << std::endl << "Allocate and Deallocate 4096 Objects" << std::endl << std::endl;
+	std::cout 
+		<< "TESTING VARIOUS ALLOCATORS" 
+		<< std::endl 
+		<< "Allocate and Deallocate 8192 Objects of ~256 bytes each, because of this the system is using the Heap Area or the Dynamic Heap Area policies for the allocator" 
+		<< std::endl 
+		<< "NOTE: To see the performance you need to run in Release or any of the optimized builds"
+		<< std::endl 
+		<< std::endl
+		<< "The next tests are using dynamic new/delete provided by EOS"
+		<< std::endl
+		<< std::endl;
 
-    static constexpr eosS32 kCatCount = 4096;
-    static constexpr eosS32 kCatBufferForStaticAllocator = kCatCount * (sizeof(Cat));
-
-    Cat* v[kCatCount];
-    eosS32 i = 0;
-
-
-    //eosFixedStackArea<kCatBufferForStaticAllocator> areakMemory;
-    eosHeapArea linearAreaMemory(kCatBufferForStaticAllocator * 32);
-    using CatLinearAllocator = eosAllocator<eosDefaultLinearAllocationPolicy, eosDefaultSingleThreadPolicy, eosDefaultBoundsCheckingPolicy, eosDefaultTrackingPolicy, eosDefaultTaggingPolicy>;
-    CatLinearAllocator linearAllocator(linearAreaMemory, "LinearAllocator");
-    EOS_PROFILE_START(eos_linear_allocator);
-    {
-        i = 0;
-        while (i < kCatCount)
-        {
-            v[i] = static_cast<Cat*>(linearAllocator.Allocate(sizeof(Cat), EOS_MEMORY_ALIGNMENT_SIZE, EOS_MEMORY_SOURCE_ALLOCATION_INFO));
-            ++i;
-        }
-
-        i = 0;
-        while (i < kCatCount)
-        {
-            linearAllocator.Free(v[i]);
-            ++i;
-        }
-    }
-    EOS_PROFILE_END;
+	static constexpr eosS32 kBufferExtensionMultiplier = 8;
+	static constexpr eosS32 kCount = 8192;
+	static constexpr eosS32 kBufferSize = kCount * (sizeof(Cat));
 
 
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    eosHeapArea poolHeapAreaMemory(kCatBufferForStaticAllocator * 32);
-    using CatPoolAllocatorNonGrowable = eosPoolAllocatorNonGrowable<sizeof(Cat), EOS_MEMORY_ALIGNMENT_SIZE>;
-    using CatPoolAllocateosPolicyNonGrowable = eosAllocationPolicy<CatPoolAllocatorNonGrowable, eosAllocationHeaderU32>;
-    using CatNonGrowablePoolAllocator = eosAllocator<CatPoolAllocateosPolicyNonGrowable, eosDefaultSingleThreadPolicy, eosDefaultBoundsCheckingPolicy, eosDefaultTrackingPolicy, eosDefaultTaggingPolicy>;
-    CatNonGrowablePoolAllocator poolAllocator(poolHeapAreaMemory, "PoolAllocator_NonGrowable");
-    EOS_PROFILE_START(eos_pool_non_growable_allocator);
-    {
-        i = 0;
-        while (i < kCatCount)
-        {
-            v[i] = static_cast<Cat*>(poolAllocator.Allocate(sizeof(Cat), EOS_MEMORY_ALIGNMENT_SIZE, EOS_MEMORY_SOURCE_ALLOCATION_INFO));
-            ++i;
-        }
 
-        i = 0;
-        while (i < kCatCount)
-        {
-            poolAllocator.Free(v[i]);
-            ++i;
-        }
-    }
-    EOS_PROFILE_END;
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////
+	Cat* v[kCount];
+	eosS32 i = 0;
 
 
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    eosDynamicHeapArea poolHeapGrowableAreaMemory(1024, kCatBufferForStaticAllocator * 32);
-    using CatPoolAllocatorGrowable = eosPoolAllocatorGrowable<sizeof(Cat), EOS_MEMORY_ALIGNMENT_SIZE, false, sizeof(Cat) * 32>;
-    using CatPoolAllocateosPolicyGrowable = eosAllocationPolicy<CatPoolAllocatorGrowable, eosAllocationHeaderU32>;
-    using CatGrowablePoolAllocator = eosAllocator<CatPoolAllocateosPolicyGrowable, eosDefaultSingleThreadPolicy, eosDefaultBoundsCheckingPolicy, eosDefaultTrackingPolicy, eosDefaultTaggingPolicy>;
-    CatGrowablePoolAllocator growablePoolAllocator(poolHeapGrowableAreaMemory, "PoolAllocator_Growable");
-    EOS_PROFILE_START(eos_pool_growable_allocator);
-    {
-        i = 0;
-        while (i < kCatCount)
-        {
-            v[i] = static_cast<Cat*>(growablePoolAllocator.Allocate(sizeof(Cat), EOS_MEMORY_ALIGNMENT_SIZE, EOS_MEMORY_SOURCE_ALLOCATION_INFO));
-            ++i;
-        }
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////
+	EOS_PROFILE_START(Original_New_and_Delete);
+	{
+		i = 0;
+		while (i < kCount)
+		{
+			v[i] = new Cat;
+			++i;
+		}
 
-        i = 0;
-        while (i < kCatCount)
-        {
-            growablePoolAllocator.Free(v[i]);
-            ++i;
-        }
-    }
-    EOS_PROFILE_END;
+		i = 0;
+		while (i < kCount)
+		{
+			delete v[i];
+			++i;
+		}
+	}
+	EOS_PROFILE_END;
 
 
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    eosHeapArea stackTopHeapAreaMemory(kCatBufferForStaticAllocator * 32);
-    using CaStackAllocateosPolicyNonGrowableFromTop = eosAllocationPolicy<eosStackAllocatorTopNonGrowable, eosAllocationHeaderU32>;
-    using CatStackFromTopNonGrowable = eosAllocator<CaStackAllocateosPolicyNonGrowableFromTop, eosDefaultSingleThreadPolicy, eosDefaultBoundsCheckingPolicy, eosDefaultTrackingPolicy, eosDefaultTaggingPolicy>;
-    CatStackFromTopNonGrowable stackAllocatorFromTop(stackTopHeapAreaMemory, "StackAllocator_FromTop_NonGrowable");
-    EOS_PROFILE_START(eos_stack_from_top_non_growable_allocator);
-    {
-        i = 0;
-        while (i < kCatCount)
-        {
-            v[i] = static_cast<Cat*>(stackAllocatorFromTop.Allocate(sizeof(Cat), EOS_MEMORY_ALIGNMENT_SIZE, EOS_MEMORY_SOURCE_ALLOCATION_INFO));
-            ++i;
-        }
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////
+	eosDynamicHeapArea mallocAreaMemory(sizeof(Cat) * kBufferExtensionMultiplier, kBufferSize * kBufferExtensionMultiplier);
+	using MallocAllocator = eosAllocator<eosDefaultMallocAllocationPolicy, eosDefaultSingleThreadPolicy, eosDefaultBoundsCheckingPolicy, eosDefaultTrackingPolicy, eosDefaultTaggingPolicy>;
+	MallocAllocator mallocAllocator(mallocAreaMemory, "MallocAllocator");
+	EOS_PROFILE_START(EOS_Malloc_Allocator);
+	{
+		i = 0;
+		while (i < kCount)
+		{
+			v[i] = eosNew(Cat, &mallocAllocator);
+			++i;
+		}
 
-        i = kCatCount;
-        while (i > 0)
-        {
-            --i;
-            stackAllocatorFromTop.Free(v[i]);
-        }
-    }
-    EOS_PROFILE_END;
-
-
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    eosDynamicHeapArea stackTopHeapAreaMemoryGrowable(1024, kCatBufferForStaticAllocator * 32);
-    using CaStackAllocateosPolicyGrowableFromTop = eosAllocationPolicy<eosStackAllocatorTopGrowable, eosAllocationHeaderU32>;
-    using CatStackFromTopGrowable = eosAllocator<CaStackAllocateosPolicyGrowableFromTop, eosDefaultSingleThreadPolicy, eosDefaultBoundsCheckingPolicy, eosDefaultTrackingPolicy, eosDefaultTaggingPolicy>;
-    CatStackFromTopGrowable stackAllocatorFromTopGrowable(stackTopHeapAreaMemoryGrowable, "StackAllocator_FromTop_Growable");
-    EOS_PROFILE_START(eos_stack_from_top_growable_allocator);
-    {
-        i = 0;
-        while (i < kCatCount)
-        {
-            v[i] = static_cast<Cat*>(stackAllocatorFromTopGrowable.Allocate(sizeof(Cat), EOS_MEMORY_ALIGNMENT_SIZE, EOS_MEMORY_SOURCE_ALLOCATION_INFO));
-            ++i;
-        }
-
-        i = kCatCount;
-        while (i > 0)
-        {
-            --i;
-            stackAllocatorFromTopGrowable.Free(v[i]);
-        }
-    }
-    EOS_PROFILE_END;
+		i = 0;
+		while (i < kCount)
+		{
+			eosDelete(v[i], &mallocAllocator);
+			++i;
+		}
+	}
+	EOS_PROFILE_END;
 
 
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    eosHeapArea stackBottomHeapAreaMemory(kCatBufferForStaticAllocator * 32);
-    using CaStackAllocateosPolicyNonGrowableFromBottom = eosAllocationPolicy<eosStackAllocatorBottomNonGrowable, eosAllocationHeaderU32>;
-    using CatStackFromBottomNonGrowable = eosAllocator<CaStackAllocateosPolicyNonGrowableFromBottom, eosDefaultSingleThreadPolicy, eosDefaultBoundsCheckingPolicy, eosDefaultTrackingPolicy, eosDefaultTaggingPolicy>;
-    CatStackFromBottomNonGrowable stackAllocatorFromBottom(stackBottomHeapAreaMemory, "StackAllocator_FromBottom_NonGrowable");
-    EOS_PROFILE_START(eos_stack_from_bottom_non_growable_allocator);
-    {
-        i = 0;
-        while (i < kCatCount)
-        {
-            v[i] = static_cast<Cat*>(stackAllocatorFromBottom.Allocate(sizeof(Cat), EOS_MEMORY_ALIGNMENT_SIZE, EOS_MEMORY_SOURCE_ALLOCATION_INFO));
-            ++i;
-        }
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////
+	static constexpr eosSize kOrderLevel = 22;		// ~4MB
+	static constexpr eosSize kHeapSize = 1 << kOrderLevel;
+	eosHeapArea heapAreaMemory(kHeapSize);
+	using HeapAllocator = eosAllocator<eosDefaultHeapAllocationPolicy<EOS_MEMORY_ALIGNMENT_SIZE, kOrderLevel>, eosDefaultSingleThreadPolicy, eosDefaultBoundsCheckingPolicy, eosDefaultTrackingPolicy, eosDefaultTaggingPolicy>;
+	HeapAllocator heapAllocator(heapAreaMemory, "HeapAllocator");
+	EOS_PROFILE_START(EOS_Heap_Allocator);
+	{
+		i = 0;
+		while (i < kCount)
+		{
+			v[i] = eosNew(Cat, &heapAllocator);
+			++i;
+		}
 
-        i = kCatCount;
-        while (i > 0)
-        {
-            --i;
-            stackAllocatorFromBottom.Free(v[i]);
-        }
-    }
-    EOS_PROFILE_END;
+		i = 0;
+		while (i < kCount)
+		{
+			eosDelete(v[i], &heapAllocator);
+			++i;
+		}
+	}
+	EOS_PROFILE_END;
+
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////
+	eosHeapArea linearAreaMemory(kBufferSize * kBufferExtensionMultiplier);
+	using LinearAllocator = eosAllocator<eosDefaultLinearAllocationPolicy, eosDefaultSingleThreadPolicy, eosDefaultBoundsCheckingPolicy, eosDefaultTrackingPolicy, eosDefaultTaggingPolicy>;
+	LinearAllocator linearAllocator(linearAreaMemory, "LinearAllocator");
+	EOS_PROFILE_START(EOS_Linear_Allocator);
+	{
+		i = 0;
+		while (i < kCount)
+		{
+			v[i] = eosNew(Cat, &linearAllocator);
+			++i;
+		}
+
+		i = 0;
+		while (i < kCount)
+		{
+			eosDelete(v[i], &linearAllocator);
+			++i;
+		}
+	}
+	EOS_PROFILE_END;
 
 
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    eosDynamicHeapArea stackBottomHeapAreaMemoryGrowable(1024, kCatBufferForStaticAllocator * 32);
-    using CaStackAllocateosPolicyGrowableFromBottom = eosAllocationPolicy<eosStackAllocatorBottomGrowable, eosAllocationHeaderU32>;
-    using CatStackFromBottomGrowable = eosAllocator<CaStackAllocateosPolicyGrowableFromBottom, eosDefaultSingleThreadPolicy, eosDefaultBoundsCheckingPolicy, eosDefaultTrackingPolicy, eosDefaultTaggingPolicy>;
-    CatStackFromBottomGrowable stackAllocatorFromBottomGrowable(stackBottomHeapAreaMemoryGrowable, "StackAllocator_FromBottom_Growable");
-    EOS_PROFILE_START(eos_stack_from_bottom_growable_allocator);
-    {
-        i = 0;
-        while (i < kCatCount)
-        {
-            v[i] = static_cast<Cat*>(stackAllocatorFromBottomGrowable.Allocate(sizeof(Cat), EOS_MEMORY_ALIGNMENT_SIZE, EOS_MEMORY_SOURCE_ALLOCATION_INFO));
-            ++i;
-        }
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////
+	eosHeapArea poolHeapAreaMemoryNoGrowable(kBufferSize * kBufferExtensionMultiplier);
+	using PoolAllocatorNoGrowable = eosAllocator<eosDefaultPoolNoGrowableAllocationPolicy<sizeof(Cat), EOS_MEMORY_ALIGNMENT_SIZE>, eosDefaultSingleThreadPolicy, eosDefaultBoundsCheckingPolicy, eosDefaultTrackingPolicy, eosDefaultTaggingPolicy>;
+	PoolAllocatorNoGrowable poolAllocatorNoGrowable(poolHeapAreaMemoryNoGrowable, "PoolAllocator_NoGrowable");
+	EOS_PROFILE_START(EOS_Pool_Allocator_NO_Growable);
+	{
+		i = 0;
+		while (i < kCount)
+		{
+			v[i] = eosNew(Cat, &poolAllocatorNoGrowable);
+			++i;
+		}
 
-        i = kCatCount;
-        while (i > 0)
-        {
-            --i;
-            stackAllocatorFromBottomGrowable.Free(v[i]);
-        }
-    }
-    EOS_PROFILE_END;
+		i = 0;
+		while (i < kCount)
+		{
+			eosDelete(v[i], &poolAllocatorNoGrowable);
+			++i;
+		}
+	}
+	EOS_PROFILE_END;
 
 
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
-//     const eosBool result = eosVirtualMemory::EnableLargePageSupport();
-//     if (result)
-//     {
-//         eosSize hugeSize = 100000000000;
-//         hugeSize = eosBitUtils::RoundUpToMultiple(hugeSize, eosVirtualMemory::GetLargePageSize());
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////
+	eosDynamicHeapArea poolHeapAreaMemoryGrowable(sizeof(Cat) * kBufferExtensionMultiplier, kBufferSize * kBufferExtensionMultiplier);
+	using PoolAllocatorGrowable = eosAllocator<eosDefaultPoolGrowableAllocationPolicy<sizeof(Cat), EOS_MEMORY_ALIGNMENT_SIZE, sizeof(Cat) * kBufferExtensionMultiplier>, eosDefaultSingleThreadPolicy, eosDefaultBoundsCheckingPolicy, eosDefaultTrackingPolicy, eosDefaultTaggingPolicy>;
+	PoolAllocatorGrowable poolAllocatorGrowable(poolHeapAreaMemoryGrowable, "PoolAllocator_Growable");
+	EOS_PROFILE_START(EOS_Pool_Allocator_Growable);
+	{
+		i = 0;
+		while (i < kCount)
+		{
+			v[i] = eosNew(Cat, &poolAllocatorGrowable);
+			++i;
+		}
+
+		i = 0;
+		while (i < kCount)
+		{
+			eosDelete(v[i], &poolAllocatorGrowable);
+			++i;
+		}
+	}
+	EOS_PROFILE_END;
+
+
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////
+	eosHeapArea stackTopHeapAreaMemoryNoGrowable(kBufferSize * kBufferExtensionMultiplier);
+	using StackFromTopNoGrowable = eosAllocator<eosDefaultStackTopNoGrowableAllocationPolicy, eosDefaultSingleThreadPolicy, eosDefaultBoundsCheckingPolicy, eosDefaultTrackingPolicy, eosDefaultTaggingPolicy>;
+	StackFromTopNoGrowable stackAllocatorFromTopNoGrowable(stackTopHeapAreaMemoryNoGrowable, "StackAllocator_FromTop_NoGrowable");
+	EOS_PROFILE_START(EOS_Stack_From_Top_Allocator_NO_Growable);
+	{
+		i = 0;
+		while (i < kCount)
+		{
+			v[i] = eosNew(Cat, &stackAllocatorFromTopNoGrowable);
+			++i;
+		}
+
+		i = kCount;
+		while (i > 0)
+		{
+			--i;
+			eosDelete(v[i], &stackAllocatorFromTopNoGrowable);
+		}
+	}
+	EOS_PROFILE_END;
+
+	
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////
+	eosDynamicHeapArea stackTopHeapAreaMemoryGrowable(sizeof(Cat) * kBufferExtensionMultiplier, kBufferSize * kBufferExtensionMultiplier);
+	using StackFromTopGrowable = eosAllocator<eosDefaultStackTopGrowableAllocationPolicy, eosDefaultSingleThreadPolicy, eosDefaultBoundsCheckingPolicy, eosDefaultTrackingPolicy, eosDefaultTaggingPolicy>;
+	StackFromTopGrowable stackAllocatorFromTopGrowable(stackTopHeapAreaMemoryGrowable, "StackAllocator_FromTop_Growable");
+	EOS_PROFILE_START(EOS_Stack_From_Top_Allocator_Growable);
+	{
+		i = 0;
+		while (i < kCount)
+		{
+			v[i] = eosNew(Cat, &stackAllocatorFromTopGrowable);
+			++i;
+		}
+
+		i = kCount;
+		while (i > 0)
+		{
+			--i;
+			eosDelete(v[i], &stackAllocatorFromTopGrowable);
+		}
+	}
+	EOS_PROFILE_END;
+
+
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////
+	eosHeapArea stackBottomHeapAreaMemoryNoGrowable(kBufferSize * kBufferExtensionMultiplier);
+	using StackFromBottomNoGrowable = eosAllocator<eosDefaultStackBottomNoGrowableAllocationPolicy, eosDefaultSingleThreadPolicy, eosDefaultBoundsCheckingPolicy, eosDefaultTrackingPolicy, eosDefaultTaggingPolicy>;
+	StackFromBottomNoGrowable stackAllocatorFromBottomNoGrowable(stackBottomHeapAreaMemoryNoGrowable, "StackAllocator_FromBottom_NoGrowable");
+	EOS_PROFILE_START(EOS_Stack_From_Bottom_Allocator_NO_Growable);
+	{
+		i = 0;
+		while (i < kCount)
+		{
+			v[i] = eosNew(Cat, &stackAllocatorFromBottomNoGrowable);
+			++i;
+		}
+
+		i = kCount;
+		while (i > 0)
+		{
+			--i;
+			eosDelete(v[i], &stackAllocatorFromBottomNoGrowable);
+		}
+	}
+	EOS_PROFILE_END;
+
+
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////
+	eosDynamicHeapArea stackBottomHeapAreaMemoryGrowable(sizeof(Cat) * kBufferExtensionMultiplier, kBufferSize * kBufferExtensionMultiplier);
+	using StackFromBottomGrowable = eosAllocator<eosDefaultStackBottomGrowableAllocationPolicy, eosDefaultSingleThreadPolicy, eosDefaultBoundsCheckingPolicy, eosDefaultTrackingPolicy, eosDefaultTaggingPolicy>;
+	StackFromBottomGrowable stackAllocatorFromBottomGrowable(stackBottomHeapAreaMemoryGrowable, "StackAllocator_FromBottom_Growable");
+	EOS_PROFILE_START(EOS_Stack_From_Bottom_Allocator_Growable);
+	{
+		i = 0;
+		while (i < kCount)
+		{
+			v[i] = eosNew(Cat, &stackAllocatorFromBottomGrowable);
+			++i;
+		}
+
+		i = kCount;
+		while (i > 0)
+		{
+			--i;
+			eosDelete(v[i], &stackAllocatorFromBottomGrowable);
+		}
+	}
+	EOS_PROFILE_END;
+
+
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+	std::cout
+		<< std::endl
+		<< std::endl
+		<< "The next tests are using array function, fixed or dynamic, provided by EOS, some of them, just to give an idea"
+		<< std::endl
+		<< std::endl;
+
+
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////
+	MallocAllocator mallocAllocatorFixedArray(mallocAreaMemory, "Fixed_Array_MallocAllocator");
+
+	EOS_PROFILE_START(EOS_FIXED_ARRAY_Malloc_Allocator);
+	{
+		Cat* arr = eosNewArray(Cat[kCount], &mallocAllocatorFixedArray);
+		eosDeleteArray(arr, &mallocAllocatorFixedArray);
+	}
+	EOS_PROFILE_END;
+
+
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////
+	MallocAllocator mallocAllocatorArray(mallocAreaMemory, "Dynamic_Array_MallocAllocator");
+
+	EOS_PROFILE_START(EOS_DYNAMIC_ARRAY_Malloc_Allocator);
+	{
+		Cat* arr = eosNewDynamicArray(Cat, kCount, &mallocAllocatorArray);
+		eosDeleteArray(arr, &mallocAllocatorArray);
+	}
+	EOS_PROFILE_END;
+
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////
+	HeapAllocator heapAllocatorFixedArray(linearAreaMemory, "Fixed_Array_HeapAllocator");
+
+	EOS_PROFILE_START(EOS_FIXED_ARRAY_Heap_Allocator);
+	{
+		Cat* arr = eosNewArray(Cat[kCount], &heapAllocatorFixedArray);
+		eosDeleteArray(arr, &heapAllocatorFixedArray);
+	}
+	EOS_PROFILE_END;
+
+
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////
+	HeapAllocator heapAllocatorArray(linearAreaMemory, "Dynamic_Array_HeapAllocator");
+
+	EOS_PROFILE_START(EOS_DYNAMIC_ARRAY_Heap_Allocator);
+	{
+		Cat* arr = eosNewDynamicArray(Cat, kCount, &heapAllocatorArray);
+		eosDeleteArray(arr, &heapAllocatorArray);
+	}
+	EOS_PROFILE_END;
+
+
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////
+	LinearAllocator linearAllocatorFixedArray(linearAreaMemory, "Fixed_Array_LinearAllocator");
+
+	EOS_PROFILE_START(EOS_FIXED_ARRAY_Linear_Allocator);
+	{
+		Cat* arr = eosNewArray(Cat[kCount], &linearAllocatorFixedArray);
+		eosDeleteArray(arr, &linearAllocatorFixedArray);
+	}
+	EOS_PROFILE_END;
+
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////
+	LinearAllocator linearAllocatorArray(linearAreaMemory, "Dynamic_Array_LinearAllocator");
+
+	EOS_PROFILE_START(EOS_DYNAMIC_ARRAY_Linear_Allocator);
+	{
+		Cat* arr = eosNewDynamicArray(Cat, kCount, &linearAllocatorArray);
+		eosDeleteArray(arr, &linearAllocatorArray);
+	}
+	EOS_PROFILE_END;
+
+
+	return 0;
+
+// 	/////////////////////////////////////////////////////////////////////////////////////////////////////////
+// 	PoolAllocatorNoGrowable poolAllocatorNoGrowableFixedArray(poolHeapAreaMemoryNoGrowable, "Fixed_Array_PoolAllocator_NoGrowable");
 // 
-//         eosSize chunkSize = 10000000;
-//         chunkSize = eosBitUtils::RoundUpToMultiple(chunkSize, eosVirtualMemory::GetLargePageSize());
+// 	EOS_PROFILE_START(EOS_FIXED_ARRAY_Pool_Allocator_NO_Growable);
+// 	{
+// 		Cat* arr = eosNewArray(Cat[kCount], &poolAllocatorNoGrowableFixedArray);
+// 		eosDeleteArray(arr, &poolAllocatorNoGrowableFixedArray);
+// 	}
+// 	EOS_PROFILE_END;
 // 
-//         void* X = eosVirtualMemory::ReserveAddressSpace(hugeSize, true);
-//         eosVirtualMemory::CommitPhysicalMemory(X, chunkSize, true);
-//     }
-
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    eosEmptyArea heapAllocatorArea;
-    using CaHeapAllocateosPolicy = eosAllocationPolicy<eosHeapAllocator, eosAllocationHeaderU32>;
-    using CatHeap = eosAllocator<CaHeapAllocateosPolicy, eosDefaultSingleThreadPolicy, eosDefaultBoundsCheckingPolicy, eosDefaultTrackingPolicy, eosDefaultTaggingPolicy>;
-    CatHeap heapAllocator(heapAllocatorArea, "HeapAllocator_NonGrowable");
-
-    EOS_PROFILE_START(eos_heap_allocator);
-    {
-        i = 0;
-        while (i < kCatCount)
-        {
-            v[i] = static_cast<Cat*>(heapAllocator.Allocate(sizeof(Cat), EOS_MEMORY_ALIGNMENT_SIZE, EOS_MEMORY_SOURCE_ALLOCATION_INFO));
-            ++i;
-        }
-
-        i = 0;
-        while (i < kCatCount)
-        {
-            heapAllocator.Free(v[i]);
-            ++i;
-        }
-    }
-    EOS_PROFILE_END;
-
-
-
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    CatLinearAllocator arrayLinearAllocator(linearAreaMemory, "Array_LinearAllocator");
-
-    EOS_PROFILE_START(eos_array_linear_allocator);
-    {
-        Cat* arr = eosNewArray(Cat[kCatCount], &arrayLinearAllocator);
-        eosDeleteArray(arr, &arrayLinearAllocator);
-    }
-    EOS_PROFILE_END;
-
-
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    CatLinearAllocator dynamicArrayLinearAllocator(linearAreaMemory, "Dyamic_Array_LinearAllocator");
-
-    eosU32 counter = kCatCount;
-    EOS_PROFILE_START(eos_dynamic_array_linear_allocator);
-    {
-        Cat* arr = eosNewDynamicArray(Cat, counter, &dynamicArrayLinearAllocator);
-        eosDeleteArray(arr, &dynamicArrayLinearAllocator);
-    }
-    EOS_PROFILE_END;
-
-
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    CatLinearAllocator stlLinearAllocator(linearAreaMemory, "STL_LinearAllocator");
-    eosVector<Cat, CatLinearAllocator> catVector(&stlLinearAllocator);
-
-    EOS_PROFILE_START(eos_stl_vector_linear_allocator);
-    {
-        catVector.resize(kCatCount);
-        catVector.clear();
-    }
-    EOS_PROFILE_END;
-
-
-
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    EOS_PROFILE_START(new_delete);
-    {
-        i = 0;
-        while (i < kCatCount)
-        {
-            v[i] = new Cat;
-            ++i;
-        }
-
-        i = 0;
-        while (i < kCatCount)
-        {
-            delete v[i];
-            ++i;
-        }
-    }
-    EOS_PROFILE_END;
-
-
-
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    eosDynamicHeapArea smartPoolHeapGrowableAreaMemory(1024, kCatBufferForStaticAllocator * 32);
-    using SmartCatPoolAllocatorGrowable = eosPoolAllocatorGrowable<sizeof(SmartCat), EOS_MEMORY_ALIGNMENT_SIZE, false, sizeof(SmartCat) * 32>;
-    using SmartCatPoolAllocateosPolicyGrowable = eosAllocationPolicy<SmartCatPoolAllocatorGrowable, eosAllocationHeaderU32>;
-    using SmartCatGrowablePoolAllocator = eosAllocator<SmartCatPoolAllocateosPolicyGrowable, eosDefaultSingleThreadPolicy, eosDefaultBoundsCheckingPolicy, eosDefaultTrackingPolicy, eosDefaultTaggingPolicy>;
-
-    SmartCatGrowablePoolAllocator smartGrowablePoolAllocator(smartPoolHeapGrowableAreaMemory, "Smart_PoolAllocator_Growable");
-    {
-        eosSmartPointer<SmartCat, SmartCatGrowablePoolAllocator> catSmart(&smartGrowablePoolAllocator);
-
-        eosSmartPointer<SmartCat, SmartCatGrowablePoolAllocator> catSmartClone1 = catSmart;
-        eosSmartPointer<SmartCat, SmartCatGrowablePoolAllocator> catSmartClone2 = catSmart;
-        eosSmartPointer<SmartCat, SmartCatGrowablePoolAllocator> catSmartClone3 = catSmart;
-    }
-
-
-    return 0;
+// 	/////////////////////////////////////////////////////////////////////////////////////////////////////////
+// 	PoolAllocatorNoGrowable poolAllocatorNoGrowableArray(poolHeapAreaMemoryNoGrowable, "Dynamic_Array_PoolAllocator_NoGrowable");
+// 
+// 	EOS_PROFILE_START(EOS_DYNAMIC_ARRAY_Pool_Allocator_NO_Growable);
+// 	{
+// 		Cat* arr = eosNewDynamicArray(Cat, kCount, &poolAllocatorNoGrowableArray);
+// 		eosDeleteArray(arr, &poolAllocatorNoGrowableArray);
+// 	}
+// 	EOS_PROFILE_END;
+// 
+// 
+// 
+// 
+// 	/////////////////////////////////////////////////////////////////////////////////////////////////////////
+// 	/////////////////////////////////////////////////////////////////////////////////////////////////////////
+// 
+// 
+// 
+// 	std::cout
+// 		<< std::endl
+// 		<< std::endl
+// 		<< "The next tests are using STL provided by EOS, some of them, just to give an idea"
+// 		<< std::endl
+// 		<< std::endl;
+// 
+// 
+// 
+// 	/////////////////////////////////////////////////////////////////////////////////////////////////////////
+// 	LinearAllocator stlLinearAllocator(linearAreaMemory, "STL_LinearAllocator");
+// 	eosVector<Cat, LinearAllocator> linearVector(&stlLinearAllocator);
+// 
+// 	EOS_PROFILE_START(EOS_STL_VECTOR_Linear_Allocator);
+// 	{
+// 		linearVector.resize(kCount);
+// 		linearVector.clear();
+// 	}
+// 	EOS_PROFILE_END;
+// 
+// 
+// 	/////////////////////////////////////////////////////////////////////////////////////////////////////////
+// 	PoolAllocatorNoGrowable stlNoGrowableAllocator(poolHeapAreaMemoryNoGrowable, "STL_Pool_NO_Growable_Allocator");
+// 	eosVector<Cat, PoolAllocatorNoGrowable> poolNoGrowableVector(&stlNoGrowableAllocator);
+// 
+// 	EOS_PROFILE_START(EOS_STL_VECTOR_Pool_NO_Growable_Allocator);
+// 	{
+// 		poolNoGrowableVector.resize(kCount);
+// 		poolNoGrowableVector.clear();
+// 	}
+// 	EOS_PROFILE_END;
+// 
+//     return 0;
 }
 
