@@ -4,6 +4,9 @@ Eos is a memory allocator providing a lot of patterns to help with the game deve
 
 > Eos is a ancient greek word means Dawn.
 
+```diff
+- DOCUMENTATION IS WORK IN PROGRESS
+```
 
 Eos is providing different allocators to use in different context in your game:
 
