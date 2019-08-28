@@ -357,7 +357,7 @@ int main()
 	EOS_PROFILE_END;
 
 	/////////////////////////////////////////////////////////////////////////////////////////////////////////
-	HeapAllocator heapAllocatorFixedArray(linearAreaMemory, "Fixed_Array_HeapAllocator");
+	HeapAllocator heapAllocatorFixedArray(heapAreaMemory, "Fixed_Array_HeapAllocator");
 
 	EOS_PROFILE_START(EOS_FIXED_ARRAY_Heap_Allocator);
 	{
@@ -368,7 +368,7 @@ int main()
 
 
 	/////////////////////////////////////////////////////////////////////////////////////////////////////////
-	HeapAllocator heapAllocatorArray(linearAreaMemory, "Dynamic_Array_HeapAllocator");
+	HeapAllocator heapAllocatorArray(heapAreaMemory, "Dynamic_Array_HeapAllocator");
 
 	EOS_PROFILE_START(EOS_DYNAMIC_ARRAY_Heap_Allocator);
 	{
@@ -399,68 +399,32 @@ int main()
 	EOS_PROFILE_END;
 
 
-	return 0;
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// 	/////////////////////////////////////////////////////////////////////////////////////////////////////////
-// 	PoolAllocatorNoGrowable poolAllocatorNoGrowableFixedArray(poolHeapAreaMemoryNoGrowable, "Fixed_Array_PoolAllocator_NoGrowable");
-// 
-// 	EOS_PROFILE_START(EOS_FIXED_ARRAY_Pool_Allocator_NO_Growable);
-// 	{
-// 		Cat* arr = eosNewArray(Cat[kCount], &poolAllocatorNoGrowableFixedArray);
-// 		eosDeleteArray(arr, &poolAllocatorNoGrowableFixedArray);
-// 	}
-// 	EOS_PROFILE_END;
-// 
-// 	/////////////////////////////////////////////////////////////////////////////////////////////////////////
-// 	PoolAllocatorNoGrowable poolAllocatorNoGrowableArray(poolHeapAreaMemoryNoGrowable, "Dynamic_Array_PoolAllocator_NoGrowable");
-// 
-// 	EOS_PROFILE_START(EOS_DYNAMIC_ARRAY_Pool_Allocator_NO_Growable);
-// 	{
-// 		Cat* arr = eosNewDynamicArray(Cat, kCount, &poolAllocatorNoGrowableArray);
-// 		eosDeleteArray(arr, &poolAllocatorNoGrowableArray);
-// 	}
-// 	EOS_PROFILE_END;
-// 
-// 
-// 
-// 
-// 	/////////////////////////////////////////////////////////////////////////////////////////////////////////
-// 	/////////////////////////////////////////////////////////////////////////////////////////////////////////
-// 
-// 
-// 
-// 	std::cout
-// 		<< std::endl
-// 		<< std::endl
-// 		<< "The next tests are using STL provided by EOS, some of them, just to give an idea"
-// 		<< std::endl
-// 		<< std::endl;
-// 
-// 
-// 
-// 	/////////////////////////////////////////////////////////////////////////////////////////////////////////
-// 	LinearAllocator stlLinearAllocator(linearAreaMemory, "STL_LinearAllocator");
-// 	eosVector<Cat, LinearAllocator> linearVector(&stlLinearAllocator);
-// 
-// 	EOS_PROFILE_START(EOS_STL_VECTOR_Linear_Allocator);
-// 	{
-// 		linearVector.resize(kCount);
-// 		linearVector.clear();
-// 	}
-// 	EOS_PROFILE_END;
-// 
-// 
-// 	/////////////////////////////////////////////////////////////////////////////////////////////////////////
-// 	PoolAllocatorNoGrowable stlNoGrowableAllocator(poolHeapAreaMemoryNoGrowable, "STL_Pool_NO_Growable_Allocator");
-// 	eosVector<Cat, PoolAllocatorNoGrowable> poolNoGrowableVector(&stlNoGrowableAllocator);
-// 
-// 	EOS_PROFILE_START(EOS_STL_VECTOR_Pool_NO_Growable_Allocator);
-// 	{
-// 		poolNoGrowableVector.resize(kCount);
-// 		poolNoGrowableVector.clear();
-// 	}
-// 	EOS_PROFILE_END;
-// 
-//     return 0;
+
+
+	std::cout
+		<< std::endl
+		<< std::endl
+		<< "The next tests are using STL provided by EOS, some of them, just to give an idea"
+		<< std::endl
+		<< std::endl;
+
+
+
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////
+	LinearAllocator stlLinearAllocator(linearAreaMemory, "STL_LinearAllocator");
+	eosVector<Cat, LinearAllocator> linearVector(&stlLinearAllocator);
+
+	EOS_PROFILE_START(EOS_STL_VECTOR_Linear_Allocator);
+	{
+		linearVector.resize(kCount);
+		linearVector.clear();
+	}
+	EOS_PROFILE_END;
+
+
+    return 0;
 }
 
