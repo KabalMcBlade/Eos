@@ -60,7 +60,7 @@ public:
 
         // TODO _count
 
-		void* ptr = m_freeList.Alloc(_size, _alignment, _offset);
+		void* ptr = m_freeList.Alloc(_size * _count, _alignment, _offset);
 
 		eosAssertReturnValue(ptr, nullptr, "Heap Allocator out of Memory");
 

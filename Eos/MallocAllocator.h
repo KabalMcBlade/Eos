@@ -38,10 +38,8 @@ public:
 		eosAssertReturnValue(eosIsPowerOf2(_alignment), nullptr, "Alignment must be power of 2");
 		eosAssertReturnValue(m_currentSize < m_maxSize, nullptr, "Memory allocated out of bound");
 
-
-        const eosSize alignedSize = eosBitUtils::RoundUpToMultiple(_size + _alignment, _alignment);
-        const eosSize newSize = (alignedSize * _count) + kAllocationHeaderSize; // need to provide sufficient space to align the pointer in any alignment with offset
-        void* addr = malloc(newSize);
+        _size += kAllocationHeaderSize; // need to provide sufficient space to align the pointer in any alignment with offset
+        void* addr = malloc(_size);
         
 		eosUPtr newPtr = eosPointerUtils::AlignTop(reinterpret_cast<eosUPtr>(addr) + _offset, _alignment) - _offset;
 		const eosSize offsetSize = newPtr - reinterpret_cast<eosUPtr>(addr);

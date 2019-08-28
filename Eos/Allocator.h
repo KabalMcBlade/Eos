@@ -52,9 +52,11 @@ public:
     {
         m_threadGuard.Enter();
 
+        _size = eosBitUtils::RoundUpToMultiple(_size + _alignment, _alignment);
+
         const eosSize headerSize = eosAllocationPolicy::kHeaderSize + eosBoundsCheckingPolicy::kSizeFront;
-        const eosSize originalSize = _size;
-        const eosSize newSize = _size + headerSize + eosBoundsCheckingPolicy::kSizeBack;
+        const eosSize originalSize = _size * _count;
+        const eosSize newSize = _size * _count + headerSize + eosBoundsCheckingPolicy::kSizeBack;
 
         eosU8* plainMemory = static_cast<eosU8*>(m_allocator.Allocate(newSize, _alignment, _count, headerSize));
 

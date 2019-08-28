@@ -52,8 +52,7 @@ public:
         m_current = eosPointerUtils::AlignTop(m_current + _offset, _alignment) - _offset;
         void* ptr = (void*)m_current;
 
-        const eosSize alignedSize = eosBitUtils::RoundUpToMultiple(_size + _alignment, _alignment);
-        m_current += (alignedSize * _count);
+        m_current += _size;
 
         eosAssertReturnValue(ptr, nullptr, "Linear Allocator returned unexpected null");
         eosAssertReturnValue(m_current < m_end, nullptr, "Linear Allocator is out of memory");
