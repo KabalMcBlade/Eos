@@ -6,38 +6,10 @@
 //////////////////////////////////////////////////////////////////////////
 
 #include <assert.h>     // for assert
-#include <cstddef>      // for std::size_t
-#include <cstdlib>      // for std::calloc, etc...
 #include <malloc.h>     // for _aligned_malloc, malloc, etc...
 #include <iostream>     // for cerr and other stuff
-#include <shared_mutex> // for std::shared_mutex, std::unique_lock, etc...
 #include <atomic>       // for std::atomic_uint_fast32_t, etc...
-#include <typeinfo>
-#include <unordered_map>
-#include <utility>
-#include <vector>
 #include <sstream>
-#include <stdint.h>     // ionU8, etc..
-#include <algorithm>    // std::min/max, etc..
-#include <functional>
-#include <mutex>
-#include <memory>
-#include <sstream>
-#include <string>
-#include <fstream>
-#include <chrono>
-#include <stdexcept>
-#include <cstring>
-#include <array>
-#include <random>
-#include <ctime>
-#include <thread>
-#include <condition_variable>
-#include <future>
-#include <stack>
-#include <queue>
-#include <deque>
-#include <map>
 
 
 
@@ -96,33 +68,6 @@
 #define EOS_MEMORY_ALIGNMENT(x)    __declspec(align(x))
 
 #define EOS_IS_ALIGNED(ptr, alignment)    (((std::uintptr_t)ptr & (alignment - 1)) == 0)
-
-
-// BIT MANIPULATEOS
-#ifdef EOS_x64
-
-#define EOS_BIT_SET(value, bitpos)          ((value) |= (static_cast<unsigned __int64>(1)<<(bitpos)))
-#define EOS_BIT_SET_IFF(value, iff, bitpos) ((value) ^= (-iff ^ (value)) & (static_cast<unsigned __int64>(1) << (bitpos)))
-#define EOS_BIT_SET_VALUE(value, mask, set) ((value) = (((value) & (mask)) | (set)))
-
-#define EOS_BIT_CHECK(value, bitpos)        ((value) & (static_cast<unsigned __int64>(1)<<(bitpos))) 
-#define EOS_BIT_CLEAR(value, bitpos)        ((value) &= ~((static_cast<unsigned __int64>(1)) << (bitpos)))
-#define EOS_BIT_TOGGLE(value, bitpos)       ((value) ^= ((static_cast<unsigned __int64>(1))<<(bitpos)))
-
-#else
-
-#define EOS_BIT_SET(value, bitpos)          ((value) |= (1<<(bitpos)))
-#define EOS_BIT_SET_IFF(value, iff, bitpos) ((value) ^= (-iff ^ (value)) & (1 << (bitpos)))
-#define EOS_BIT_SET_VALUE(value, mask, set) ((value) = (((value) & (mask)) | (set)))
-
-#define EOS_BIT_CHECK(value, bitpos)        ((value) & (1<<(bitpos))) 
-#define EOS_BIT_CLEAR(value, bitpos)        ((value) &= ~((1) << (bitpos)))
-#define EOS_BIT_TOGGLE(value, bitpos)       ((value) ^= (1<<(bitpos)))
-
-
-#endif
-
-#define EOS_BIT_GET(value, mask)            ((value) & (mask)) 
 
 
 #define EOS_PROFILE_START(tag) { \

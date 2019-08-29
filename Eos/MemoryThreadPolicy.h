@@ -1,5 +1,9 @@
 #pragma once
 
+#include <thread>
+#include <mutex>
+#include <shared_mutex>
+
 #include "CoreDefs.h"
 
 EOS_NAMESPACE_BEGIN

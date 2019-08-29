@@ -1,5 +1,7 @@
 #pragma once
 
+#include <chrono>
+
 #include "CoreDefs.h"
 
 #include "MemoryUtils.h"
