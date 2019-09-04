@@ -41,7 +41,7 @@ public:
         _size += kAllocationHeaderSize; // need to provide sufficient space to align the pointer in any alignment with offset
         void* addr = malloc(_size);
         
-		eosUPtr newPtr = eosPointerUtils::AlignTop(reinterpret_cast<eosUPtr>(addr) + _offset, _alignment) - _offset;
+		eosUPtr newPtr = eosPointerUtils::AlignTop(reinterpret_cast<eosUPtr>(addr) + kAllocationHeaderSize + _offset, _alignment) - _offset;
 		const eosSize offsetSize = newPtr - reinterpret_cast<eosUPtr>(addr);
 
 		union
@@ -52,8 +52,7 @@ public:
 		};
 		as_uptr = newPtr;
 
-		*(as_header) = static_cast<Header>(offsetSize);
-		++as_header;
+		*(as_header - 1) = static_cast<Header>(offsetSize);
 
 		return as_void;
 	}
@@ -68,8 +67,7 @@ public:
 		};
 		as_void = _ptr;
 		
-		--as_header;
-		const Header headerSize = *(as_header);
+		const Header headerSize = *(as_header - 1);
 		as_uptr -= headerSize;
 
 		free(as_void);

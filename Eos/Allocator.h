@@ -52,7 +52,8 @@ public:
     {
         m_threadGuard.Enter();
 
-        _size = eosBitUtils::RoundUpToMultiple(_size + _alignment, _alignment);
+		// Maybe the size for many "count" object if fine already, keep it commented for future reference
+        //_size = eosBitUtils::RoundUpToMultiple(_size + _alignment, _alignment);
 
         const eosSize headerSize = eosAllocationPolicy::kHeaderSize + eosBoundsCheckingPolicy::kSizeFront;
         const eosSize originalSize = _size * _count;

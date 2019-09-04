@@ -29,7 +29,7 @@ public:
 		eosS32 i, order;
 		void* block, *buddy;
 
-		_size += kAllocationHeaderSize + _alignment;	// in this 32 bit more (int/Header) I'm going to store the local information I need
+		_size += kAllocationHeaderSize/* + _alignment*/;	// in this 32 bit more (int/Header) I'm going to store the local information I need
 
 		// minimal order
 		i = 0;
@@ -73,7 +73,7 @@ public:
 			m_buddy.m_freelist[i] = buddy;
 		}
 
-		const eosUPtr userPtr = eosPointerUtils::AlignTop(reinterpret_cast<eosUPtr>(block) + _offset, MinAlignment) - _offset;
+		const eosUPtr userPtr = eosPointerUtils::AlignTop(reinterpret_cast<eosUPtr>(block) + kAllocationHeaderSize + _offset, MinAlignment) - _offset;
 		const eosSize offset = userPtr - reinterpret_cast<eosUPtr>(block);
 
 		// store order in previous byte
@@ -84,10 +84,8 @@ public:
 			eosUPtr as_uptr;
 		};
 		as_uptr = userPtr;
-		Header& flag = *(as_header);
+		Header& flag = *(as_header - 1);
 		flag = static_cast<eosU16>(offset) | (static_cast<eosU16>(order) << 16);
-
-		++as_header;
 
 		return as_void;
 	}
@@ -107,9 +105,7 @@ public:
 		};
 		as_void = _ptr;
 
-		--as_header;
-
-		const Header flag = *(as_header);
+		const Header flag = *(as_header - 1);
 		const eosU32 offset = (flag & 0x0000ffff);
 		i = (flag & 0xffff0000) >> 16;
 

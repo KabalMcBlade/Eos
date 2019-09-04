@@ -135,7 +135,7 @@ public:
             }
         }
 
-        eosUPtr newPtr = eosPointerUtils::AlignTop(reinterpret_cast<eosUPtr>(ptr) + _offset, _alignment) - _offset;
+        eosUPtr newPtr = eosPointerUtils::AlignTop(reinterpret_cast<eosUPtr>(ptr) + kAllocationHeaderSize + _offset, _alignment) - _offset;
         const eosSize offsetSize = newPtr - reinterpret_cast<eosUPtr>(ptr);
 
         eosAssertReturnValue(offsetSize >> (sizeof(Header) * 8) == 0, nullptr, "offsetSize must be less that sizeof(AllocationHeaderType). offsetSize = %zd, sizeof(Header) = %zd", offsetSize, sizeof(Header));
@@ -149,8 +149,7 @@ public:
         };
         as_uptr = newPtr;
 
-        *(as_header) = static_cast<Header>(offsetSize);
-		++as_header;
+        *(as_header - 1) = static_cast<Header>(offsetSize);
 
         ++m_allocateosCounter;
 
@@ -167,9 +166,7 @@ public:
         };
         as_void = _ptr;
 
-		--as_header;
-
-        const eosU8 headerSize = *(as_header);
+        const eosU8 headerSize = *(as_header - 1);
         as_uptr -= headerSize;
 
         m_freeList.Release(as_void);
