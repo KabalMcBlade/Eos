@@ -15,7 +15,7 @@ template <class eosAllocationPolicy, class eosThreadPolicy, class eosBoundsCheck
 class eosAllocator
 {
 public:
-    static_assert(eosBoundsCheckingPolicy::kSizeBack == 0 || eosAllocationPolicy::kHeaderSize > 0, "eosBoundsCheckingPolicy requires an eosAllocationPolicy with a header size greater than 0 in order to store allocateos size.");
+    static_assert(eosBoundsCheckingPolicy::kSizeBack == 0 || eosAllocationPolicy::kHeaderSize > 0, "eosBoundsCheckingPolicy requires an eosAllocationPolicy with a header size greater than 0 in order to store allocation size.");
 
     eosAllocator(eosSize _size, const char* _name = EOS_UNKNOW_ALLOCATOR) :
         m_allocator(_size, eosAllocationPolicy::kHeaderSize + eosBoundsCheckingPolicy::kSizeFront),
@@ -45,7 +45,7 @@ public:
     ~eosAllocator()
     {
         m_memoryTracker.Shutdown(*this);
-        eosAssertReturnVoid(m_memoryTracker.GetNumAllocations() == 0, "Allocator %s has memory leaks of %zu allocateoss", m_name, m_memoryTracker.GetNumAllocations());
+        eosAssertReturnVoid(m_memoryTracker.GetNumAllocations() == 0, "Allocator %s has memory leaks of %zu allocation", m_name, m_memoryTracker.GetNumAllocations());
     }
 
     EOS_INLINE void* Allocate(eosSize _size, eosSize _alignment, eosSize _count, const eosSourceInfo& _sourceInfo)

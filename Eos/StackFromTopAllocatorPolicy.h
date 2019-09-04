@@ -70,9 +70,9 @@ public:
     }
 
     template<typename eosStackAllocator>
-    EOS_INLINE eosBool Grow(eosStackAllocator* _stack, eosSize _allocateosSize, eosBool _hugeMemoryPage)
+    EOS_INLINE eosBool Grow(eosStackAllocator* _stack, eosSize _allocationSize, eosBool _hugeMemoryPage)
     {
-        const eosSize neededPhysicalSize = eosBitUtils::RoundUpToMultiple(_allocateosSize, _stack->m_growSize);
+        const eosSize neededPhysicalSize = eosBitUtils::RoundUpToMultiple(_allocationSize, _stack->m_growSize);
         if (_stack->m_physicalEnd - neededPhysicalSize < _stack->m_virtualEnd)
         {
             return false;

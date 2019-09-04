@@ -14,7 +14,7 @@ template<eosSize MaxElementSize, eosSize MaxAlignment, eosBool CanGrow, eosSize 
 class eosPoolAllocator
 {
 public:
-    eosPoolAllocator(eosSize _size, eosSize _offset) : m_owner(EOwnerType_Malloc), m_maxElementSize(kMaxElementSize + MaxAlignment + kAllocationHeaderSize), m_allocateosCounter(0)
+    eosPoolAllocator(eosSize _size, eosSize _offset) : m_owner(EOwnerType_Malloc), m_maxElementSize(kMaxElementSize + MaxAlignment + kAllocationHeaderSize), m_allocationCounter(0)
     {
         eosAssertDialog(_size > 0);
         eosAssertDialog(!CanGrow);      // With this constructor the allocator CANNOT grow
@@ -29,7 +29,7 @@ public:
          m_wastedSpace = m_freeList.GetWastedSize();
     }
 
-    eosPoolAllocator(eosSize _startSize, eosSize _maxSize, eosSize _offset) : m_owner(EOwnerType_VirtualAlloc), m_maxElementSize(kMaxElementSize + MaxAlignment + kAllocationHeaderSize), m_allocateosCounter(0)
+    eosPoolAllocator(eosSize _startSize, eosSize _maxSize, eosSize _offset) : m_owner(EOwnerType_VirtualAlloc), m_maxElementSize(kMaxElementSize + MaxAlignment + kAllocationHeaderSize), m_allocationCounter(0)
     {
         eosAssertDialog(_startSize <= _maxSize);
         eosAssertDialog(CanGrow);      // With this constructor the allocator CAN grow
@@ -56,7 +56,7 @@ public:
         eosAssertDialog(m_growSize % eosVirtualMemory::GetPageSize() == 0 && m_growSize != 0);    // to block execute
     }
 
-    eosPoolAllocator(void* _start, void* _end, eosSize _offset) : m_owner(EOwnerType_None), m_maxElementSize(kMaxElementSize + MaxAlignment + kAllocationHeaderSize), m_allocateosCounter(0)
+    eosPoolAllocator(void* _start, void* _end, eosSize _offset) : m_owner(EOwnerType_None), m_maxElementSize(kMaxElementSize + MaxAlignment + kAllocationHeaderSize), m_allocationCounter(0)
     {
         eosAssertDialog(_start);
         eosAssertDialog(_end);
@@ -151,7 +151,7 @@ public:
 
         *(as_header - 1) = static_cast<Header>(offsetSize);
 
-        ++m_allocateosCounter;
+        ++m_allocationCounter;
 
         return as_void;
     }
@@ -170,7 +170,7 @@ public:
         as_uptr -= headerSize;
 
         m_freeList.Release(as_void);
-        --m_allocateosCounter;
+        --m_allocationCounter;
     }
 
     EOS_INLINE void Reset()
@@ -186,7 +186,7 @@ public:
 
     EOS_INLINE eosSize GetTotalUsedSize()  const
     {
-        return (m_allocateosCounter * m_freeList.GetSlotSize()) + m_wastedSpace;
+        return (m_allocationCounter * m_freeList.GetSlotSize()) + m_wastedSpace;
     }
 
     EOS_INLINE eosSize GetPhysicalSize() const
@@ -226,7 +226,7 @@ private:
     eosSize m_maxElementSize;
     eosSize m_growSize;
 
-    eosSize m_allocateosCounter;
+    eosSize m_allocationCounter;
     eosSize m_wastedSpace;
 
     EOwnerType m_owner;
