@@ -48,52 +48,37 @@
     <ClInclude Include="Eos\Log.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Eos\Allocator.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Eos\MallocAllocator.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Eos\MemoryAllocationHeaderPolicy.h">
+    <ClInclude Include="Eos\MemCpy.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Eos\MemoryAllocationPolicy.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Eos\MemoryAllocator.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="Eos\MemoryAreaPolicy.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Eos\MemoryBoundsCheckingPolicy.h">
+    <ClInclude Include="Eos\MemoryBasicDefines.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Eos\MemoryBuddyAllocator.h">
+    <ClInclude Include="Eos\MemoryBoundsCheckPolicy.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Eos\MemoryFreeList.h">
+    <ClInclude Include="Eos\MemoryHeaderPolicy.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Eos\MemoryTaggingPolicy.h">
+    <ClInclude Include="Eos\MemoryLayoutUtils.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eos\MemoryLogPolicy.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eos\MemoryTagPolicy.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Eos\MemoryThreadPolicy.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Eos\MemoryTrackingPolicy.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Eos\MemoryUtils.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Eos\NonCopyable.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Eos\PoolAllocator.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Eos\StackFromBottomAllocatorPolicy.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Eos\StackFromTopAllocatorPolicy.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Eos\StlAllocator.h">
@@ -102,11 +87,47 @@
     <ClInclude Include="Eos\StlAllocatorsTypes.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Eos\VirtualMemory.h">
+    <ClInclude Include="Eos\Allocators\FreeListAllocator.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eos\Allocators\LinearAllocator.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eos\Allocators\PoolAllocator.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eos\Core\Assertions.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eos\Core\BasicDefines.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eos\Core\BasicTypes.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eos\Core\NoCopyable.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eos\Core\NumberUtils.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eos\Core\PointerUtils.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eos\DataStructures\DoublyLinkedList.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eos\DataStructures\LinkedList.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Eos\DataStructures\StackLinkedList.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Eos\MemoryManager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="Test.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>

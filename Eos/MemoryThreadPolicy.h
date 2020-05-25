@@ -4,97 +4,95 @@
 #include <mutex>
 #include <shared_mutex>
 
-#include "CoreDefs.h"
+#include "Core/BasicTypes.h"
+
 
 EOS_NAMESPACE_BEGIN
 
 
-////////////////////////////////////////////////////////////////////////////////
-class eosMutex
+class Mutex
 {
 public:
-    EOS_INLINE void Enter()
-    {
-        m_mutex.lock();
-    }
+	EOS_INLINE void Enter()
+	{
+		m_mutex.lock();
+	}
 
-    EOS_INLINE void Leave()
-    {
-        m_mutex.unlock();
-    }
+	EOS_INLINE void Leave()
+	{
+		m_mutex.unlock();
+	}
 
 private:
-    std::mutex m_mutex;
+	std::mutex m_mutex;
 };
 
 
-////////////////////////////////////////////////////////////////////////////////
-class eosSharedMutex
+class SharedMutex
 {
 public:
-    EOS_INLINE void Enter()
-    {
-        m_mutex.lock();
-    }
+	EOS_INLINE void Enter()
+	{
+		m_mutex.lock();
+	}
 
-    EOS_INLINE void Leave()
-    {
-        m_mutex.unlock();
-    }
+	EOS_INLINE void Leave()
+	{
+		m_mutex.unlock();
+	}
 
 private:
-    std::shared_mutex m_mutex;
+	std::shared_mutex m_mutex;
 };
 
 
-////////////////////////////////////////////////////////////////////////////////
-class eosRecursiveMutex
+class RecursiveMutex
 {
 public:
-    EOS_INLINE void Enter()
-    {
-        m_mutex.lock();
-    }
+	EOS_INLINE void Enter()
+	{
+		m_mutex.lock();
+	}
 
-    EOS_INLINE void Leave()
-    {
-        m_mutex.unlock();
-    }
+	EOS_INLINE void Leave()
+	{
+		m_mutex.unlock();
+	}
 
 private:
-    std::recursive_mutex m_mutex;
+	std::recursive_mutex m_mutex;
 };
 
-////////////////////////////////////////////////////////////////////////////////
-class eosSingleThread
+
+class SingleThread
 {
 public:
-    EOS_INLINE void Enter() {};
-    EOS_INLINE void Leave() {};
+	EOS_INLINE void Enter() {};
+	EOS_INLINE void Leave() {};
 };
 
-////////////////////////////////////////////////////////////////////////////////
+
 template<typename SynchronizateosMutex>
-class eosMultiThread
+class MultiThread
 {
 public:
-    EOS_INLINE void Enter() 
-    {
-        m_syncMutex.Enter(); 
-    }
+	EOS_INLINE void Enter()
+	{
+		m_syncMutex.Enter();
+	}
 
-    EOS_INLINE void Leave()
-    {
-        m_syncMutex.Leave();
-    }
+	EOS_INLINE void Leave()
+	{
+		m_syncMutex.Leave();
+	}
 
 private:
-    SynchronizateosMutex m_syncMutex;
+	SynchronizateosMutex m_syncMutex;
 };
 
-////////////////////////////////////////////////////////////////////////////////
 
-using eosDefaultMultiThreadPolicy = eosMultiThread<eosMutex>;
-using eosDefaultSingleThreadPolicy = eosSingleThread;
+using MultiThreadPolicy = MultiThread<Mutex>;
+using SingleThreadPolicy = SingleThread;
+
 
 EOS_NAMESPACE_END

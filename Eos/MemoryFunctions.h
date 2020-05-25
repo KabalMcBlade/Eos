@@ -1,115 +1,131 @@
 #pragma once
 
-#include "CoreDefs.h"
+#include "Core/BasicTypes.h"
 
-#include "MemoryUtils.h"
+#include "MemoryLayoutUtils.h"
+#include "MemoryLogPolicy.h"
 
 
 EOS_NAMESPACE_BEGIN
 
+
 template<typename T, class Allocator>
 EOS_INLINE void Free(T* _object, Allocator* _allocator)
 {
-    _object->~T();
-    _allocator->Free(_object);
+	_object->~T();
+	_allocator->Free(_object);
+}
+
+
+template<typename T, class Allocator>
+EOS_INLINE T* AllocArray(Allocator* _allocator, size _cnt, const char* _file, uint32 _line, MemUtils::NoPODType)
+{
+	eosAssertReturnValue(Allocator::kAllowedAllocationArray, nullptr, "This allocator cannot allocates array using this proxy function, please check the allocator for further details!");
+
+	union
+	{
+		void* as_void;
+		size* as_size;
+		T* as_T;
+	};
+
+	as_T = AllocArray<T>(_allocator, _cnt, _file, _line, MemUtils::PODType());
+
+	const T* const onePastLast = as_T + _cnt;
+	while (as_T < onePastLast)
+	{
+		new (as_T++) T;
+	}
+
+	return as_T - _cnt;
 }
 
 template<typename T, class Allocator>
-EOS_INLINE T* AllocArray(Allocator* _allocator, eosSize _cnt, const char* _file, eosU32 _line, eosNonPODType)
+EOS_INLINE T* AllocArray(Allocator* _allocator, size _cnt, const char* _file, uint32 _line, MemUtils::PODType)
 {
-    union
-    {
-        void* as_void;
-        eosSize* as_size;
-        T* as_T;
-    };
+	eosAssertReturnValue(Allocator::kAllowedAllocationArray, nullptr, "This allocator cannot allocates array using this proxy function, please check the allocator for further details!");
 
-    as_T = AllocArray<T>(_allocator, _cnt, _file, _line, eosPODType());
+	union
+	{
+		void* as_void;
+		size* as_size;
+		T* as_T;
+	};
 
-    const T* const onePastLast = as_T + _cnt;
-    while (as_T < onePastLast)
-    {
-        new (as_T++) T;
-    }
+	const size totalSize = (sizeof(T) * _cnt) + sizeof(size);	// the size of size is to store the element in front of the pointer
+	as_void = _allocator->Allocate(totalSize, alignof(T), LogSourceInfo(_file, _line));
 
-    return as_T - _cnt;
+	*(as_size) = _cnt;
+	++as_size;	// increment of size, to skip the first part where the count is stored
+
+	return as_T;
 }
 
-template<typename T, class Allocator>
-EOS_INLINE T* AllocArray(Allocator* _allocator, eosSize _cnt, const char* _file, eosU32 _line, eosPODType)
-{
-    union
-    {
-        void* as_void;
-        eosSize* as_size;
-        T* as_T;
-    };
-
-    const eosSize numHeaderElements = sizeof(eosSize) / sizeof(T) + ((eosBool)(sizeof(eosSize) % sizeof(T)) || 0);
-
-    as_void = _allocator->Allocate(sizeof(T), alignof(T), (_cnt + numHeaderElements), eosSourceInfo(_file, _line));
-
-    // store number of elements at the back of the first element of the array.
-    as_T += numHeaderElements;
-    *(as_size - 1) = _cnt;
-
-    return as_T;
-}
 
 template <typename T, class Allocator>
 EOS_INLINE void FreeArray(T* _ptr, Allocator* _allocator)
 {
-    FreeArray(_ptr, _allocator, eosIntToType<eosIsPOD<T>::value>());
+	eosAssertReturnVoid(Allocator::kAllowedAllocationArray, "This allocator cannot allocates array using this proxy function, please check the allocator for further details!");
+
+	FreeArray(_ptr, _allocator, MemUtils::IntToType<MemUtils::IsPOD<T>::value>());
 }
 
+
 template<typename T, class Allocator>
-EOS_INLINE void FreeArray(T* _ptr, Allocator* _allocator, eosNonPODType)
+EOS_INLINE void FreeArray(T* _ptr, Allocator* _allocator, MemUtils::NoPODType)
 {
-    union
-    {
-        eosSize* as_size;
-        T* as_T;
-    };
+	eosAssertReturnVoid(Allocator::kAllowedAllocationArray, "This allocator cannot allocates array using this proxy function, please check the allocator for further details!");
 
-    as_T = _ptr;
-    const eosSize _cnt = as_size[-1];
+	union
+	{
+		size* as_size;
+		T* as_T;
+	};
 
-    for (eosSize i = _cnt; i > 0; --i)
-    {
-        as_T[i - 1].~T();
-    }
+	as_T = _ptr;
 
-    const eosSize numHeaderElements = sizeof(eosSize) / sizeof(T) + ((eosBool)(sizeof(eosSize) % sizeof(T)) || 0);
+	const size _cnt = as_size[-1];	// this should be valid, since I have allocated one more before and returned the ++size beforehand during allocation
 
-    _allocator->Free(as_T - numHeaderElements);
+	for (size i = _cnt; i > 0; --i)
+	{
+		as_T[i - 1].~T();
+	}
+
+	--as_size;
+	_allocator->Free(as_T);
 }
 
+
 template<typename T, class Allocator>
-EOS_INLINE void FreeArray(T* _ptr, Allocator& _allocator, eosPODType)
+EOS_INLINE void FreeArray(T* _ptr, Allocator& _allocator, MemUtils::PODType)
 {
-    union
-    {
-        eosSize* as_size;
-        T* as_T;
-    };
+	eosAssertReturnVoid(Allocator::kAllowedAllocationArray, "This allocator cannot allocates array using this proxy function, please check the allocator for further details!");
 
-    as_T = _ptr;
-    const eosSize numHeaderElements = sizeof(eosSize) / sizeof(T) + ((eosBool)(sizeof(eosSize) % sizeof(T)) || 0);
+	union
+	{
+		size* as_size;
+		T* as_T;
+	};
 
-    _allocator->Free(as_T - numHeaderElements);
+	as_T = _ptr;
+	--as_size;
+	_allocator->Free(as_T);
 }
 
 
 EOS_NAMESPACE_END
 
 
-// Put outside of scope using namespace scope when required in order to allow to use define without namespace scope
-//////////////////////////////////////////////////////////////////////////
+#define eosNewAlignedRaw(Size, Allocator, Alignment)	 (Allocator)->Allocate(Size, Alignment, EOS_ALLOCATION_INFO)
+#define eosDeleteRaw(Ptr, Allocator)					 (Allocator)->Free(Ptr);
 
-#define eosNewAligned(Type, Allocator, Alignment, ...)  new ((Allocator)->Allocate(sizeof(Type), Alignment, 1, EOS_MEMORY_SOURCE_ALLOCATION_INFO)) Type(__VA_ARGS__)
+#define eosNewAligned(Type, Allocator, Alignment, ...)  new ((Allocator)->Allocate(sizeof(Type), Alignment, EOS_ALLOCATION_INFO)) Type(__VA_ARGS__)
 #define eosNew(Type, Allocator, ...)                    eosNewAligned(Type, (Allocator), alignof(Type), __VA_ARGS__)
 #define eosDelete(Object, Allocator)                    eos::Free((Object), (Allocator))
 
-#define eosNewDynamicArray(Type, Count, Allocator)      eos::AllocArray<Type>((Allocator), Count, __FILE__, __LINE__, eos::eosIntToType<eos::eosIsPOD<Type>::value>())
-#define eosNewArray(Type, Allocator)                    eos::AllocArray<eos::eosTypeAndCount<Type>::type>((Allocator), eos::eosTypeAndCount<Type>::count, __FILE__, __LINE__, eos::eosIntToType<eos::eosIsPOD<eos::eosTypeAndCount<Type>::type>::value>())
+#define eosReallocAligned(Ptr, Type, Allocator, Alignment)		(Allocator)->Reallocate(Ptr, sizeof(Type), Alignment, EOS_ALLOCATION_INFO)
+#define eosReallocAlignedRaw(Ptr, Size, Allocator, Alignment)	(Allocator)->Reallocate(Ptr, Size, Alignment, EOS_ALLOCATION_INFO)
+
+#define eosNewDynamicArray(Type, Count, Allocator)      eos::AllocArray<Type>((Allocator), Count, __FILE__, __LINE__, eos::MemUtils::IntToType<eos::MemUtils::IsPOD<Type>::value>())
+#define eosNewArray(Type, Allocator)                    eos::AllocArray<eos::MemUtils::TypeAndCount<Type>::type>((Allocator), eos::MemUtils::TypeAndCount<Type>::count, __FILE__, __LINE__, eos::MemUtils::IntToType<eos::MemUtils::IsPOD<eos::MemUtils::TypeAndCount<Type>::type>::value>())
 #define eosDeleteArray(ObjectArray, Allocator)          eos::FreeArray((ObjectArray), (Allocator))
