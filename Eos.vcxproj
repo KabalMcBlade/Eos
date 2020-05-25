@@ -19,36 +19,42 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Eos\Allocator.h" />
+    <ClInclude Include="Eos\Allocators\FreeListAllocator.h" />
+    <ClInclude Include="Eos\Allocators\LinearAllocator.h" />
+    <ClInclude Include="Eos\Allocators\PoolAllocator.h" />
+    <ClInclude Include="Eos\Core\Assertions.h" />
+    <ClInclude Include="Eos\Core\BasicDefines.h" />
+    <ClInclude Include="Eos\Core\BasicTypes.h" />
+    <ClInclude Include="Eos\Core\NoCopyable.h" />
+    <ClInclude Include="Eos\Core\NumberUtils.h" />
+    <ClInclude Include="Eos\Core\PointerUtils.h" />
+    <ClInclude Include="Eos\DataStructures\DoublyLinkedList.h" />
+    <ClInclude Include="Eos\DataStructures\LinkedList.h" />
+    <ClInclude Include="Eos\DataStructures\StackLinkedList.h" />
     <ClInclude Include="Eos\Eos.h" />
     <ClInclude Include="Eos\CoreDefs.h" />
     <ClInclude Include="Eos\HeapAllocator.h" />
     <ClInclude Include="Eos\LinearAllocator.h" />
     <ClInclude Include="Eos\Log.h" />
-    <ClInclude Include="Eos\MallocAllocator.h" />
-    <ClInclude Include="Eos\MemoryAllocationHeaderPolicy.h" />
+    <ClInclude Include="Eos\MemCpy.h" />
     <ClInclude Include="Eos\MemoryAllocationPolicy.h" />
+    <ClInclude Include="Eos\MemoryAllocator.h" />
     <ClInclude Include="Eos\MemoryAreaPolicy.h" />
-    <ClInclude Include="Eos\MemoryBoundsCheckingPolicy.h" />
-    <ClInclude Include="Eos\MemoryBuddyAllocator.h" />
-    <ClInclude Include="Eos\MemoryFreeList.h" />
+    <ClInclude Include="Eos\MemoryBasicDefines.h" />
+    <ClInclude Include="Eos\MemoryBoundsCheckPolicy.h" />
     <ClInclude Include="Eos\MemoryFunctions.h" />
+    <ClInclude Include="Eos\MemoryHeaderPolicy.h" />
+    <ClInclude Include="Eos\MemoryLayoutUtils.h" />
+    <ClInclude Include="Eos\MemoryLogPolicy.h" />
     <ClInclude Include="Eos\MemoryManager.h" />
-    <ClInclude Include="Eos\MemoryTaggingPolicy.h" />
+    <ClInclude Include="Eos\MemoryTagPolicy.h" />
     <ClInclude Include="Eos\MemoryThreadPolicy.h" />
-    <ClInclude Include="Eos\MemoryTrackingPolicy.h" />
-    <ClInclude Include="Eos\MemoryUtils.h" />
-    <ClInclude Include="Eos\NonCopyable.h" />
-    <ClInclude Include="Eos\PoolAllocator.h" />
     <ClInclude Include="Eos\SmartPointer.h" />
     <ClInclude Include="Eos\StackAllocator.h" />
-    <ClInclude Include="Eos\StackFromBottomAllocatorPolicy.h" />
-    <ClInclude Include="Eos\StackFromTopAllocatorPolicy.h" />
     <ClInclude Include="Eos\StlAllocator.h" />
     <ClInclude Include="Eos\StlAllocators.h" />
     <ClInclude Include="Eos\StlAllocatorsMacro.h" />
     <ClInclude Include="Eos\StlAllocatorsTypes.h" />
-    <ClInclude Include="Eos\VirtualMemory.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Test.cpp" />

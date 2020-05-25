@@ -7,430 +7,172 @@
 
 EOS_USING_NAMESPACE
 
-struct Cat
+
+MemoryAllocator<FreeListBestSearchAllocationPolicy, SingleThreadPolicy, MemoryBoundsCheck, MemoryTag, MemoryLog>* GetFreeListAllocator()
 {
-	static constexpr eosSize kSize = 1 << 8;	// ~256 bytes
-    eosU8 m_buffer[kSize];
+	static HeapArea<4096> freeListHeapArea;
+	static MemoryAllocator<FreeListBestSearchAllocationPolicy, SingleThreadPolicy, MemoryBoundsCheck, MemoryTag, MemoryLog> testFreeListBestAllocator(freeListHeapArea, "Test_FreeListBestAllocator");
 
-    Cat()
-    {
-        m_buffer[0] = 0;
-    }
-};
+	return &testFreeListBestAllocator;
+}
 
-/*
-class SmartCat : public eosSmartObject
-{
-public:
-    int a;
 
-    SmartCat()
-    {
-        a = 0xCAFE;
-    }
+static int incremental = 0;
 
-    SmartCat(const SmartCat& other)
-    {
-        a = other.a;
-    }
-
-    SmartCat& operator=(const SmartCat& other)
-    {
-        a = other.a;
-        return *this;
-    }
-
-    SmartCat(int _a)
-    {
-        a = _a;
-    }
-
-    virtual ~SmartCat()
-    {
-        a = 0x0000;
-    }
-};
-class SuperCat : public Cat
+class Test
 {
 public:
-    char counter[10];
-    int numlol;
+	Test()
+	{
+		m_i = incremental++;
+	}
 
-    SuperCat() : Cat()
-    {
-        memcpy(counter, "xxxxxxxxxx", 10);
-        numlol = 101;
-    }
+	~Test()
+	{
+		m_i = 0;
+	}
 
-    SuperCat(int _a) : Cat(_a)
-    {
-        memcpy(counter, "0123456789", 10);
-    }
-
-    virtual ~SuperCat()
-    {
-        numlol = 0;
-        memset(counter, 0, 10);
-    }
+private:
+	int m_i;
 };
-*/
+
+class Cat
+{
+public:
+	Cat()
+	{
+		m_i = incremental++;
+		m_pawCount = 4;
+		m_hasTail = true;
+		m_color[0] = 0.5f;
+		m_color[1] = 0.35f;
+		m_color[2] = 0.13f;
+	}
+
+	~Cat()
+	{
+		m_i = 0;
+		m_pawCount = 0;
+		m_hasTail = false;
+		memset(&m_color, 0, sizeof(m_color));
+	}
+
+private:
+	int m_pawCount;
+	int m_i;
+	float m_color[3];
+	bool m_hasTail;
+};
+
+
+class SmartCat : public Cat, public SmartObject
+{
+
+};
+
 
 int main()
 {
-	std::cout 
-		<< "TESTING VARIOUS ALLOCATORS" 
-		<< std::endl 
-		<< "Allocate and Deallocate 8192 Objects of ~256 bytes each, because of this the system is using the Heap Area or the Dynamic Heap Area policies for the allocator" 
-		<< std::endl 
-		<< "NOTE: To see the performance you need to run in Release or any of the optimized builds"
-		<< std::endl 
-		<< std::endl
-		<< "The next tests are using dynamic new/delete provided by EOS"
-		<< std::endl
-		<< std::endl;
+	HeapArea<256> simpleHeapArea;
+	MemoryAllocator<LinearAllocationPolicy, SingleThreadPolicy, MemoryBoundsCheck, MemoryTag, MemoryLog> testLinearAllocator(simpleHeapArea, "Test_LinearAllocator");
 
-	static constexpr eosS32 kBufferExtensionMultiplier = 8;
-	static constexpr eosS32 kCount = 8192;
-	static constexpr eosS32 kBufferSize = kCount * (sizeof(Cat));
+	Test* t1 = eosNew(Test, &testLinearAllocator);
+	eosDelete(t1, &testLinearAllocator);
+
+	t1 = eosNew(Test, &testLinearAllocator);
+	eosDelete(t1, &testLinearAllocator);
+
+	t1 = eosNew(Test, &testLinearAllocator);
+	eosDelete(t1, &testLinearAllocator);
+
+	t1 = eosNew(Test, &testLinearAllocator);
+	eosDelete(t1, &testLinearAllocator);
+
+	Test* tArray = eosNewArray(Test[4], &testLinearAllocator);
+	eosDeleteArray(tArray, &testLinearAllocator);
+
+	Test* tArray2 = eosNewArray(Test[8], &testLinearAllocator);
+	eosDeleteArray(tArray2, &testLinearAllocator);
+
+	Test* tDynamicArray = eosNewDynamicArray(Test, 4, &testLinearAllocator);
+	eosDeleteArray(tDynamicArray, &testLinearAllocator);
 
 
+	///////////////////////////////////////////////////////////////////////
 
-	/////////////////////////////////////////////////////////////////////////////////////////////////////////
-	Cat* v[kCount];
-	eosS32 i = 0;
+	HeapArea<512> poolHeapArea;
+	MemoryAllocator<PoolAllocationPolicy<sizeof(Cat), alignof(Cat)>, SingleThreadPolicy, MemoryBoundsCheck, MemoryTag, MemoryLog> testPoolAllocator(poolHeapArea, "Test_PoolAllocator");
+
+	Cat* mew0 = eosNew(Cat, &testPoolAllocator);
+	eosDelete(mew0, &testPoolAllocator);
+
+	Cat* mew1 = eosNew(Cat, &testPoolAllocator);
+	eosDelete(mew1, &testPoolAllocator);
+
+	// These 2 calls are to show that the pool allocator cannot use the array version, due is already allocated by the element count
+	// so simply get one by one.
+	// Uncomment to see the assert on console
+	//Cat* catArray = eosNewArray(Cat[8], &testPoolAllocator);
+	//eosDeleteArray(catArray, &testPoolAllocator);
+
+	//Cat* catArrayD = eosNewDynamicArray(Cat, 4, &testPoolAllocator);
+	//eosDeleteArray(catArrayD, &testPoolAllocator);
+	//
+
+	///////////////////////////////////////////////////////////////////////
+	using FreeListAllocator = MemoryAllocator<FreeListBestSearchAllocationPolicy, SingleThreadPolicy, MemoryBoundsCheck, MemoryTag, MemoryLog>;
+	///////////////////////////////////////////////////////////////////////
 
 
-	/////////////////////////////////////////////////////////////////////////////////////////////////////////
-	EOS_PROFILE_START(Original_New_and_Delete);
+	///////////////////////////////////////////////////////////////////////
+
+	HeapArea<512> freeListHeapArea;
+	FreeListAllocator testFreeListBestAllocator(freeListHeapArea, "Test_FreeListBestAllocator");
+
+	Cat* kitty0 = eosNew(Cat, &testFreeListBestAllocator);
+	eosDelete(kitty0, &testFreeListBestAllocator);
+
+	Cat* kitty1 = eosNew(Cat, &testFreeListBestAllocator);
+	eosDelete(kitty1, &testFreeListBestAllocator);
+
+	kitty0 = eosNew(Cat, &testFreeListBestAllocator);
+	kitty1 = eosNew(Cat, &testFreeListBestAllocator);
+	eosDelete(kitty0, &testFreeListBestAllocator);
+	eosDelete(kitty1, &testFreeListBestAllocator);
+
+	///////////////////////////////////////////////////////////////////////
+
+	HeapArea<512> smartFreeListHeapArea;
+	FreeListAllocator smartTestFreeListBestAllocator(smartFreeListHeapArea, "Smart_Test_FreeListBestAllocator");
+
+	// explicit
+	SmartCat* smartCat = eosNew(SmartCat, &smartTestFreeListBestAllocator);
 	{
-		i = 0;
-		while (i < kCount)
-		{
-			v[i] = new Cat;
-			++i;
-		}
+		SmartPointer<SmartCat, FreeListAllocator> smartCatPtr1 = SmartPointer<SmartCat, FreeListAllocator>(&smartTestFreeListBestAllocator, smartCat);
 
-		i = 0;
-		while (i < kCount)
+		SmartPointer<SmartCat, FreeListAllocator> smartCatPtr2 = smartCatPtr1;
+
 		{
-			delete v[i];
-			++i;
+			SmartPointer<SmartCat, FreeListAllocator> smartCatPtr3 = smartCatPtr2;
+			SmartPointer<SmartCat, FreeListAllocator> smartCatPtr4 = smartCatPtr1;
 		}
 	}
-	EOS_PROFILE_END;
 
-
-	/////////////////////////////////////////////////////////////////////////////////////////////////////////
-	eosDynamicHeapArea mallocAreaMemory(sizeof(Cat) * kBufferExtensionMultiplier, kBufferSize * kBufferExtensionMultiplier);
-	using MallocAllocator = eosAllocator<eosDefaultMallocAllocationPolicy, eosDefaultSingleThreadPolicy, eosDefaultBoundsCheckingPolicy, eosDefaultTrackingPolicy, eosDefaultTaggingPolicy>;
-	MallocAllocator mallocAllocator(mallocAreaMemory, "MallocAllocator");
-	EOS_PROFILE_START(EOS_Malloc_Allocator);
+	// implicit
 	{
-		i = 0;
-		while (i < kCount)
-		{
-			v[i] = eosNew(Cat, &mallocAllocator);
-			++i;
-		}
+		SmartPointer<SmartCat, FreeListAllocator> autoSmartCatPtr1 = SmartPointer<SmartCat, FreeListAllocator>(&smartTestFreeListBestAllocator);
 
-		i = 0;
-		while (i < kCount)
+		SmartPointer<SmartCat, FreeListAllocator> autoSmartCatPtr2 = autoSmartCatPtr1;
+
 		{
-			eosDelete(v[i], &mallocAllocator);
-			++i;
+			SmartPointer<SmartCat, FreeListAllocator> autoSmartCatPtr3 = autoSmartCatPtr2;
+			SmartPointer<SmartCat, FreeListAllocator> autoSmartCatPtr4 = autoSmartCatPtr1;
 		}
 	}
-	EOS_PROFILE_END;
+
+	///////////////////////////////////////////////////////////////////////
 
 
-	/////////////////////////////////////////////////////////////////////////////////////////////////////////
-	static constexpr eosSize kOrderLevel = 22;		// ~4MB
-	static constexpr eosSize kHeapSize = 1 << kOrderLevel;
-	eosHeapArea heapAreaMemory(kHeapSize);
-	using HeapAllocator = eosAllocator<eosDefaultHeapAllocationPolicy<EOS_MEMORY_ALIGNMENT_SIZE, kOrderLevel>, eosDefaultSingleThreadPolicy, eosDefaultBoundsCheckingPolicy, eosDefaultTrackingPolicy, eosDefaultTaggingPolicy>;
-	HeapAllocator heapAllocator(heapAreaMemory, "HeapAllocator");
-	EOS_PROFILE_START(EOS_Heap_Allocator);
-	{
-		i = 0;
-		while (i < kCount)
-		{
-			v[i] = eosNew(Cat, &heapAllocator);
-			++i;
-		}
-
-		i = 0;
-		while (i < kCount)
-		{
-			eosDelete(v[i], &heapAllocator);
-			++i;
-		}
-	}
-	EOS_PROFILE_END;
-
-	/////////////////////////////////////////////////////////////////////////////////////////////////////////
-	eosHeapArea linearAreaMemory(kBufferSize * kBufferExtensionMultiplier);
-	using LinearAllocator = eosAllocator<eosDefaultLinearAllocationPolicy, eosDefaultSingleThreadPolicy, eosDefaultBoundsCheckingPolicy, eosDefaultTrackingPolicy, eosDefaultTaggingPolicy>;
-	LinearAllocator linearAllocator(linearAreaMemory, "LinearAllocator");
-	EOS_PROFILE_START(EOS_Linear_Allocator);
-	{
-		i = 0;
-		while (i < kCount)
-		{
-			v[i] = eosNew(Cat, &linearAllocator);
-			++i;
-		}
-
-		i = 0;
-		while (i < kCount)
-		{
-			eosDelete(v[i], &linearAllocator);
-			++i;
-		}
-	}
-	EOS_PROFILE_END;
-
-
-	/////////////////////////////////////////////////////////////////////////////////////////////////////////
-	eosHeapArea poolHeapAreaMemoryNoGrowable(kBufferSize * kBufferExtensionMultiplier);
-	using PoolAllocatorNoGrowable = eosAllocator<eosDefaultPoolNoGrowableAllocationPolicy<sizeof(Cat), EOS_MEMORY_ALIGNMENT_SIZE>, eosDefaultSingleThreadPolicy, eosDefaultBoundsCheckingPolicy, eosDefaultTrackingPolicy, eosDefaultTaggingPolicy>;
-	PoolAllocatorNoGrowable poolAllocatorNoGrowable(poolHeapAreaMemoryNoGrowable, "PoolAllocator_NoGrowable");
-	EOS_PROFILE_START(EOS_Pool_Allocator_NO_Growable);
-	{
-		i = 0;
-		while (i < kCount)
-		{
-			v[i] = eosNew(Cat, &poolAllocatorNoGrowable);
-			++i;
-		}
-
-		i = 0;
-		while (i < kCount)
-		{
-			eosDelete(v[i], &poolAllocatorNoGrowable);
-			++i;
-		}
-	}
-	EOS_PROFILE_END;
-
-
-	/////////////////////////////////////////////////////////////////////////////////////////////////////////
-	eosDynamicHeapArea poolHeapAreaMemoryGrowable(sizeof(Cat) * kBufferExtensionMultiplier, kBufferSize * kBufferExtensionMultiplier);
-	using PoolAllocatorGrowable = eosAllocator<eosDefaultPoolGrowableAllocationPolicy<sizeof(Cat), EOS_MEMORY_ALIGNMENT_SIZE, sizeof(Cat) * kBufferExtensionMultiplier>, eosDefaultSingleThreadPolicy, eosDefaultBoundsCheckingPolicy, eosDefaultTrackingPolicy, eosDefaultTaggingPolicy>;
-	PoolAllocatorGrowable poolAllocatorGrowable(poolHeapAreaMemoryGrowable, "PoolAllocator_Growable");
-	EOS_PROFILE_START(EOS_Pool_Allocator_Growable);
-	{
-		i = 0;
-		while (i < kCount)
-		{
-			v[i] = eosNew(Cat, &poolAllocatorGrowable);
-			++i;
-		}
-
-		i = 0;
-		while (i < kCount)
-		{
-			eosDelete(v[i], &poolAllocatorGrowable);
-			++i;
-		}
-	}
-	EOS_PROFILE_END;
-
-
-	/////////////////////////////////////////////////////////////////////////////////////////////////////////
-	eosHeapArea stackTopHeapAreaMemoryNoGrowable(kBufferSize * kBufferExtensionMultiplier);
-	using StackFromTopNoGrowable = eosAllocator<eosDefaultStackTopNoGrowableAllocationPolicy, eosDefaultSingleThreadPolicy, eosDefaultBoundsCheckingPolicy, eosDefaultTrackingPolicy, eosDefaultTaggingPolicy>;
-	StackFromTopNoGrowable stackAllocatorFromTopNoGrowable(stackTopHeapAreaMemoryNoGrowable, "StackAllocator_FromTop_NoGrowable");
-	EOS_PROFILE_START(EOS_Stack_From_Top_Allocator_NO_Growable);
-	{
-		i = 0;
-		while (i < kCount)
-		{
-			v[i] = eosNew(Cat, &stackAllocatorFromTopNoGrowable);
-			++i;
-		}
-
-		i = kCount;
-		while (i > 0)
-		{
-			--i;
-			eosDelete(v[i], &stackAllocatorFromTopNoGrowable);
-		}
-	}
-	EOS_PROFILE_END;
-
-	
-	/////////////////////////////////////////////////////////////////////////////////////////////////////////
-	eosDynamicHeapArea stackTopHeapAreaMemoryGrowable(sizeof(Cat) * kBufferExtensionMultiplier, kBufferSize * kBufferExtensionMultiplier);
-	using StackFromTopGrowable = eosAllocator<eosDefaultStackTopGrowableAllocationPolicy, eosDefaultSingleThreadPolicy, eosDefaultBoundsCheckingPolicy, eosDefaultTrackingPolicy, eosDefaultTaggingPolicy>;
-	StackFromTopGrowable stackAllocatorFromTopGrowable(stackTopHeapAreaMemoryGrowable, "StackAllocator_FromTop_Growable");
-	EOS_PROFILE_START(EOS_Stack_From_Top_Allocator_Growable);
-	{
-		i = 0;
-		while (i < kCount)
-		{
-			v[i] = eosNew(Cat, &stackAllocatorFromTopGrowable);
-			++i;
-		}
-
-		i = kCount;
-		while (i > 0)
-		{
-			--i;
-			eosDelete(v[i], &stackAllocatorFromTopGrowable);
-		}
-	}
-	EOS_PROFILE_END;
-
-
-	/////////////////////////////////////////////////////////////////////////////////////////////////////////
-	eosHeapArea stackBottomHeapAreaMemoryNoGrowable(kBufferSize * kBufferExtensionMultiplier);
-	using StackFromBottomNoGrowable = eosAllocator<eosDefaultStackBottomNoGrowableAllocationPolicy, eosDefaultSingleThreadPolicy, eosDefaultBoundsCheckingPolicy, eosDefaultTrackingPolicy, eosDefaultTaggingPolicy>;
-	StackFromBottomNoGrowable stackAllocatorFromBottomNoGrowable(stackBottomHeapAreaMemoryNoGrowable, "StackAllocator_FromBottom_NoGrowable");
-	EOS_PROFILE_START(EOS_Stack_From_Bottom_Allocator_NO_Growable);
-	{
-		i = 0;
-		while (i < kCount)
-		{
-			v[i] = eosNew(Cat, &stackAllocatorFromBottomNoGrowable);
-			++i;
-		}
-
-		i = kCount;
-		while (i > 0)
-		{
-			--i;
-			eosDelete(v[i], &stackAllocatorFromBottomNoGrowable);
-		}
-	}
-	EOS_PROFILE_END;
-
-
-	/////////////////////////////////////////////////////////////////////////////////////////////////////////
-	eosDynamicHeapArea stackBottomHeapAreaMemoryGrowable(sizeof(Cat) * kBufferExtensionMultiplier, kBufferSize * kBufferExtensionMultiplier);
-	using StackFromBottomGrowable = eosAllocator<eosDefaultStackBottomGrowableAllocationPolicy, eosDefaultSingleThreadPolicy, eosDefaultBoundsCheckingPolicy, eosDefaultTrackingPolicy, eosDefaultTaggingPolicy>;
-	StackFromBottomGrowable stackAllocatorFromBottomGrowable(stackBottomHeapAreaMemoryGrowable, "StackAllocator_FromBottom_Growable");
-	EOS_PROFILE_START(EOS_Stack_From_Bottom_Allocator_Growable);
-	{
-		i = 0;
-		while (i < kCount)
-		{
-			v[i] = eosNew(Cat, &stackAllocatorFromBottomGrowable);
-			++i;
-		}
-
-		i = kCount;
-		while (i > 0)
-		{
-			--i;
-			eosDelete(v[i], &stackAllocatorFromBottomGrowable);
-		}
-	}
-	EOS_PROFILE_END;
-
-
-	/////////////////////////////////////////////////////////////////////////////////////////////////////////
-	/////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-
-	std::cout
-		<< std::endl
-		<< std::endl
-		<< "The next tests are using array function, fixed or dynamic, provided by EOS, some of them, just to give an idea"
-		<< std::endl
-		<< std::endl;
-
-
-	/////////////////////////////////////////////////////////////////////////////////////////////////////////
-	MallocAllocator mallocAllocatorFixedArray(mallocAreaMemory, "Fixed_Array_MallocAllocator");
-
-	EOS_PROFILE_START(EOS_FIXED_ARRAY_Malloc_Allocator);
-	{
-		Cat* arr = eosNewArray(Cat[kCount], &mallocAllocatorFixedArray);
-		eosDeleteArray(arr, &mallocAllocatorFixedArray);
-	}
-	EOS_PROFILE_END;
-
-
-	/////////////////////////////////////////////////////////////////////////////////////////////////////////
-	MallocAllocator mallocAllocatorArray(mallocAreaMemory, "Dynamic_Array_MallocAllocator");
-
-	EOS_PROFILE_START(EOS_DYNAMIC_ARRAY_Malloc_Allocator);
-	{
-		Cat* arr = eosNewDynamicArray(Cat, kCount, &mallocAllocatorArray);
-		eosDeleteArray(arr, &mallocAllocatorArray);
-	}
-	EOS_PROFILE_END;
-
-
-	/////////////////////////////////////////////////////////////////////////////////////////////////////////
-	HeapAllocator heapAllocatorFixedArray(heapAreaMemory, "Fixed_Array_HeapAllocator");
-
-	EOS_PROFILE_START(EOS_FIXED_ARRAY_Heap_Allocator);
-	{
-		Cat* arr = eosNewArray(Cat[kCount], &heapAllocatorFixedArray);
-		eosDeleteArray(arr, &heapAllocatorFixedArray);
-	}
-	EOS_PROFILE_END;
-
-
-	/////////////////////////////////////////////////////////////////////////////////////////////////////////
-	HeapAllocator heapAllocatorArray(heapAreaMemory, "Dynamic_Array_HeapAllocator");
-
-	EOS_PROFILE_START(EOS_DYNAMIC_ARRAY_Heap_Allocator);
-	{
-		Cat* arr = eosNewDynamicArray(Cat, kCount, &heapAllocatorArray);
-		eosDeleteArray(arr, &heapAllocatorArray);
-	}
-	EOS_PROFILE_END;
-    
-
-	/////////////////////////////////////////////////////////////////////////////////////////////////////////
-	LinearAllocator linearAllocatorFixedArray(linearAreaMemory, "Fixed_Array_LinearAllocator");
-
-	EOS_PROFILE_START(EOS_FIXED_ARRAY_Linear_Allocator);
-	{
-		Cat* arr = eosNewArray(Cat[kCount], &linearAllocatorFixedArray);
-		eosDeleteArray(arr, &linearAllocatorFixedArray);
-	}
-	EOS_PROFILE_END;
-
-	/////////////////////////////////////////////////////////////////////////////////////////////////////////
-	LinearAllocator linearAllocatorArray(linearAreaMemory, "Dynamic_Array_LinearAllocator");
-
-	EOS_PROFILE_START(EOS_DYNAMIC_ARRAY_Linear_Allocator);
-	{
-		Cat* arr = eosNewDynamicArray(Cat, kCount, &linearAllocatorArray);
-		eosDeleteArray(arr, &linearAllocatorArray);
-	}
-	EOS_PROFILE_END;
-
-
-	/////////////////////////////////////////////////////////////////////////////////////////////////////////
-	/////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-
-
-	std::cout
-		<< std::endl
-		<< std::endl
-		<< "The next tests are using STL provided by EOS, some of them, just to give an idea"
-		<< std::endl
-		<< std::endl;
-
-
-
-	/////////////////////////////////////////////////////////////////////////////////////////////////////////
-	LinearAllocator stlLinearAllocator(linearAreaMemory, "STL_LinearAllocator");
-	eosVector<Cat, LinearAllocator> linearVector(&stlLinearAllocator);
-
-	EOS_PROFILE_START(EOS_STL_VECTOR_Linear_Allocator);
-	{
-		linearVector.resize(kCount);
-		linearVector.clear();
-	}
-	EOS_PROFILE_END;
-
-
-    return 0;
+	Vector<Cat, FreeListAllocator, GetFreeListAllocator> catVector;
+	catVector.resize(16);
 }
-
