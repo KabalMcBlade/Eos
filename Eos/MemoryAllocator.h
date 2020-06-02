@@ -38,8 +38,6 @@ public:
 
 		uint8* buffer = static_cast<uint8*>(m_allocator.Allocate(totalSize, _alignment, m_headerSize, BoundsCheckPolicy::kSizeBack));
 
-		bool is_aligned = EOS_IS_ALIGNED(buffer, _alignment);
-
 		m_allocator.StoreSize(buffer, totalSize);
 
 		m_boundsChecker.GuardFront(buffer + AllocationPolicy::kHeaderSize);
@@ -49,8 +47,6 @@ public:
 		m_memoryLog.OnAllocation(buffer, totalSize, _alignment, _sourceInfo);
 
 		m_thread.Leave();
-
-		is_aligned = EOS_IS_ALIGNED(buffer + m_headerSize, _alignment);
 
 		return (buffer + m_headerSize);
 	}
@@ -76,15 +72,19 @@ public:
 
 	EOS_INLINE void* Reallocate(void* _ptr, size _size, size _alignment, const LogSourceInfo& _sourceInfo)
 	{
-		void* newPtr = nullptr;
+		if (_ptr == nullptr)
+		{
+			return Allocate(_size, _alignment, _sourceInfo);
+		}
 
 		m_thread.Enter();
 		uint8* buffer = reinterpret_cast<uint8*>(_ptr) - m_headerSize;
-		const size oldAllocationSize = m_allocator.GetSize(buffer) - m_headerSize - BoundsCheckPolicy::kSizeBack;
-		const size sizeToCopy = oldAllocationSize > _size ? _size : oldAllocationSize;
+		const size totalSize = m_allocator.GetSize(buffer);
+		const size allocationSize = totalSize - (m_headerSize + BoundsCheckPolicy::kSizeBack);
+		const size sizeToCopy = allocationSize > _size ? _size : allocationSize;
 		m_thread.Leave();
 
-		newPtr = Allocate(_size, _alignment, _sourceInfo);
+		void* newPtr = Allocate(_size, _alignment, _sourceInfo);
 
 		m_thread.Enter();
 		MemUtils::MemCpy(newPtr, _ptr, sizeToCopy);

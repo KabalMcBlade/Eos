@@ -12,8 +12,6 @@
 #include "../MemoryAllocationPolicy.h"
 
 
-EOS_OPTIMIZATION_OFF
-
 EOS_NAMESPACE_BEGIN
 
 
@@ -74,11 +72,8 @@ public:
 		size padding = 0;
 		Find(_size, _alignment, _headerSize, padding, prevNode, nodeFound);
 
-		//nodeFound = (Node*)CoreUtils::AlignTop((uintPtr)nodeFound + _headerSize, _alignment) - _headerSize;
-
 		eosAssertReturnValue(nodeFound != nullptr, nullptr, "Memory over, please resize the allocator!");
 
-		//const size alignmentPadding = padding - kAllocationHeaderSize;
 		const size requiredSize = _size + padding;
 
 		const size left = nodeFound->m_data.m_blockSize - requiredSize;
@@ -91,11 +86,11 @@ public:
 		}
 		m_freeList.Remove(prevNode, nodeFound);
 
-		const size headerAddress = (size)(nodeFound) + padding/*alignmentPadding*/;
+		const size headerAddress = (size)(nodeFound) + padding;
 
 		const size dataAddress = headerAddress + kAllocationHeaderSize;
 		((FreeListAllocator::AllocationHeader *) headerAddress)->m_blockSize = requiredSize;
-		((FreeListAllocator::AllocationHeader *) headerAddress)->m_padding = static_cast<uint8>(padding/*alignmentPadding*/);
+		((FreeListAllocator::AllocationHeader *) headerAddress)->m_padding = static_cast<uint8>(padding);
 
 		m_usedMemory += requiredSize;
 
@@ -188,8 +183,6 @@ void FreeListAllocator<EFreeListSearch::EFreeListSearch_First>::Find(const size 
 
 	while (it != nullptr)
 	{
-		//_padding = CoreUtils::AlignTopAmount((uintPtr)it + kAllocationHeaderSize, _alignment) + kAllocationHeaderSize;
-
 		const uintPtr curr = (uintPtr)it + kAllocationHeaderSize;
 		const uintPtr temp = CoreUtils::AlignTop(curr + _headerSize, _alignment) - _headerSize;
 		_padding = (temp - curr);
@@ -223,8 +216,6 @@ void FreeListAllocator<EFreeListSearch::EFreeListSearch_Best>::Find(const size _
 
 	while (it != nullptr) 
 	{
-		//_padding = CoreUtils::AlignTopAmount((uintPtr)it + kAllocationHeaderSize, _alignment) + kAllocationHeaderSize;
-
 		const uintPtr curr = (uintPtr)it + kAllocationHeaderSize;
 		const uintPtr temp = CoreUtils::AlignTop(curr + _headerSize, _alignment) - _headerSize;
 		_padding = (temp - curr);

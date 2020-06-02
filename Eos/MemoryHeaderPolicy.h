@@ -5,7 +5,7 @@
 
 EOS_NAMESPACE_BEGIN
 
-
+/*
 #if defined(NDEBUG)
 
 
@@ -20,8 +20,9 @@ public:
 
 
 #else
+*/
 
-
+// for realloc purpose, I keep this even in release, is not so bad in term of performance.
 class AllocationHeader : public NoCopyableMoveable
 {
 public:
@@ -39,7 +40,7 @@ public:
 };
 
 
-#endif
+//#endif
 
 
 EOS_NAMESPACE_END
