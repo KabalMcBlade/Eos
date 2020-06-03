@@ -32,6 +32,11 @@ public:
 		return m_allocator.Allocate(_size, _alignment, _headerSize, _footerSize);
 	}
 
+	EOS_INLINE size GetAllocatedSize(void* _ptr)
+	{
+		return m_allocator.GetAllocatedSize(_ptr);
+	}
+
 	EOS_INLINE void Free(void* _ptr, size _size)
 	{
 		m_allocator.Free(_ptr, _size);

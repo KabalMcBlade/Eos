@@ -47,13 +47,14 @@ public:
 	~MyNewAllocator() {}
 	EOS_INLINE void* Allocate(size _size, size _alignment, size _headerSize, size _footerSize) {}
 	EOS_INLINE void Free(void* _ptr, size _size) {}
+	EOS_INLINE size GetAllocatedSize(void* _ptr);
 	EOS_INLINE void Reset() {}
 	EOS_INLINE size GetUsedMemory()  const {}
 	EOS_INLINE size GetTotalMemory() const {}
 }
 ```
 
-Note, the above example IS NOT AN INTERFACE!
+Note, the above example IS NOT AN INTERFACE, is a PROXY!
 **Eos** is using extensive meta-template programming paradigm, and so your allocator just have that functions inside.
 Also the parameters are not mandatory: you can have all or just commenting out whatever you do not need
 (See code inside the Allocators foldr to understand the way)
@@ -65,6 +66,9 @@ to split the chunk of memory when an array is requested, but simple pass the req
 
 The actual allocation and deallocation is made from the MemoryArea (see MemoryAreaPolicy.h) and you can have stack based (meaning allocated in the stack) or heap based (heap)
 
+Note for Realloc:
+Reallocation is happening using allocation and free. The only constraint is implementing the GetAllocatedSize function which will return the size stored in the allocator.
+Remember that it needs to take into account all the calculation made from the MemoryAllocator!
 
 ## Parts of the allocator
 

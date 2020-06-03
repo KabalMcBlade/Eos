@@ -65,6 +65,11 @@ public:
 		m_freeList.Push((Node*)_ptr);
 	}
 
+	EOS_INLINE size GetAllocatedSize(void* /*_ptr*/)
+	{
+		return m_fullChunkSize;
+	}
+
 	EOS_INLINE void Reset()
 	{
 		m_usedMemory = 0;

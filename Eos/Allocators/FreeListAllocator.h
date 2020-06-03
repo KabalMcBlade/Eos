@@ -125,6 +125,18 @@ public:
 		Coalescence(itPrev, freeNode);
 	}
 
+	EOS_INLINE size GetAllocatedSize(void* _ptr)
+	{
+		const size currentAddress = (size)_ptr;
+		const size headerAddress = currentAddress - sizeof(FreeListAllocator::AllocationHeader);
+		const FreeListAllocator::AllocationHeader* allocationHeader{ (FreeListAllocator::AllocationHeader*) headerAddress };
+
+		// I have to remove the padding here, because outside is expecting the allocated plain memory
+		const size blockSize = allocationHeader->m_blockSize - allocationHeader->m_padding;
+
+		return blockSize;
+	}
+
 	EOS_INLINE void Reset()
 	{
 		m_usedMemory = 0;

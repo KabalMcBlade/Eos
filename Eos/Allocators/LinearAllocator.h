@@ -50,8 +50,15 @@ public:
 		return ptr;
 	}
 
+	// Cannot free a linear allocator
 	EOS_INLINE void Free(void* /*_ptr*/, size /*_size*/)
 	{
+	}
+
+	// The linear allocator never store its own size
+	EOS_INLINE size GetAllocatedSize(void* /*_ptr*/)
+	{
+		return 0;
 	}
 
 	EOS_INLINE void Reset()

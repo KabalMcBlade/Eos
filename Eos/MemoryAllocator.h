@@ -78,10 +78,10 @@ public:
 		}
 
 		m_thread.Enter();
-		uint8* buffer = reinterpret_cast<uint8*>(_ptr) - m_headerSize;
-		const size totalSize = m_allocator.GetSize(buffer);
-		const size allocationSize = totalSize - (m_headerSize + BoundsCheckPolicy::kSizeBack);
-		const size sizeToCopy = allocationSize > _size ? _size : allocationSize;
+ 		uint8* buffer = static_cast<uint8*>(_ptr) - m_headerSize;
+ 		const size totalSize = m_allocator.GetAllocatedSize(buffer);
+ 		const size allocationSize = totalSize - (m_headerSize + BoundsCheckPolicy::kSizeBack);
+ 		const size sizeToCopy = allocationSize > _size ? _size : allocationSize;
 		m_thread.Leave();
 
 		void* newPtr = Allocate(_size, _alignment, _sourceInfo);
