@@ -24,7 +24,6 @@ private:
 };
 
 
-
 template<size Size>
 class HeapArea : public NoCopyableMoveable
 {
@@ -36,6 +35,29 @@ public:
 	}
 
 	~HeapArea()
+	{
+		free(m_start);
+	}
+
+	EOS_INLINE void* GetStart() const { return m_start; }
+	EOS_INLINE void* GetEnd() const { return m_end; }
+
+private:
+	void* m_start;
+	void* m_end;
+};
+
+// R is for "runtime" to distinguished against the normal template version
+class HeapAreaR : public NoCopyableMoveable
+{
+public:
+	HeapAreaR(size _size)
+	{
+		m_start = malloc(_size);
+		m_end = reinterpret_cast<void*>(reinterpret_cast<uintPtr>(m_start) + _size);
+	}
+
+	~HeapAreaR()
 	{
 		free(m_start);
 	}
