@@ -135,16 +135,16 @@ protected:
 	T * m_object;
 };
 
-template <class T1, class T2, typename Allocator> EOS_INLINE bool operator==(SmartPointer<T1, typename Allocator> const & _sp1, SmartPointer<T2, typename Allocator> const & _sp2) { return _sp1->Get() == _sp2->Get(); }
-template <class T1, class T2, typename Allocator> EOS_INLINE bool operator==(SmartPointer<T1, typename Allocator> const & _sp1, T2* _p2) { return _sp1->Get() == _p2; }
-template <class T1, class T2, typename Allocator> EOS_INLINE bool operator==(T1* _p1, SmartPointer<T2, typename Allocator> const & _sp2) { return _p1 == _sp2->Get(); }
+template <class T1, class T2, typename Allocator> EOS_INLINE bool operator==(SmartPointer<T1, typename Allocator> const & _sp1, SmartPointer<T2, typename Allocator> const & _sp2) { return _sp1.Get() == _sp2.Get(); }
+template <class T1, class T2, typename Allocator> EOS_INLINE bool operator==(SmartPointer<T1, typename Allocator> const & _sp1, T2* _p2) { return _sp1.Get() == _p2; }
+template <class T1, class T2, typename Allocator> EOS_INLINE bool operator==(T1* _p1, SmartPointer<T2, typename Allocator> const & _sp2) { return _p1 == _sp2.Get(); }
 
 template <class T1, class T2, typename Allocator> EOS_INLINE bool operator!=(SmartPointer<T1, typename Allocator> const & _sp1, SmartPointer<T2, typename Allocator> const & _sp2) { return _sp1() != _sp2(); }
-template <class T1, class T2, typename Allocator> EOS_INLINE bool operator!=(SmartPointer<T1, typename Allocator> const & _sp1, T2* _p2) { return _sp1->Get() != _p2; }
-template <class T1, class T2, typename Allocator> EOS_INLINE bool operator!=(T1* _p1, SmartPointer<T2, typename Allocator> const & _sp2) { return _p1 != _sp2->Get(); }
+template <class T1, class T2, typename Allocator> EOS_INLINE bool operator!=(SmartPointer<T1, typename Allocator> const & _sp1, T2* _p2) { return _sp1.Get() != _p2; }
+template <class T1, class T2, typename Allocator> EOS_INLINE bool operator!=(T1* _p1, SmartPointer<T2, typename Allocator> const & _sp2) { return _p1 != _sp2.Get(); }
 
-template <class T, typename Allocator>EOS_INLINE bool operator<(SmartPointer<T, typename Allocator> const & _sp1, SmartPointer<T, typename Allocator> const & _sp2) { return _sp1->Get() < _sp2->Get(); }
-template <class T, typename Allocator>EOS_INLINE bool operator>(SmartPointer<T, typename Allocator> const & _sp1, SmartPointer<T, typename Allocator> const & _sp2) { return _sp1->Get() > _sp2->Get(); }
+template <class T, typename Allocator>EOS_INLINE bool operator<(SmartPointer<T, typename Allocator> const & _sp1, SmartPointer<T, typename Allocator> const & _sp2) { return _sp1.Get() < _sp2.Get(); }
+template <class T, typename Allocator>EOS_INLINE bool operator>(SmartPointer<T, typename Allocator> const & _sp1, SmartPointer<T, typename Allocator> const & _sp2) { return _sp1.Get() > _sp2.Get(); }
 
 
 EOS_NAMESPACE_END
