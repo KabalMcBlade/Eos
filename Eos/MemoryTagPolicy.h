@@ -1,3 +1,7 @@
+// Copyright (c) 2018-2025 Michele Condo'
+// File: C:\Projects\Eos\Eos\MemoryTagPolicy.h
+// Licensed under the MIT License. See LICENSE file in the project root for full license information.
+
 #pragma once
 
 #include "Core/BasicTypes.h"

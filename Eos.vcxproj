@@ -59,6 +59,9 @@
   <ItemGroup>
     <ClCompile Include="Test.cpp" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="Eos.licenseheader" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{F2C15C29-58BD-4285-99AC-5AB43756CFCC}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
